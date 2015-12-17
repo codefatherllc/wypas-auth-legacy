@@ -27,6 +27,7 @@
 #include "outputmessage.h"
 #include "connection.h"
 
+#include "dispatcher.h"
 #include "configmanager.h"
 
 extern ConfigManager g_config;
@@ -55,7 +56,6 @@ void ProtocolLogin::disconnectClient(uint8_t error, const char* message)
 
 void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 {
-	uint32_t clientIp = getConnection()->getIP();
 	msg.skip(2); // client platform
 	uint16_t version = msg.get<uint16_t>();
 
@@ -93,14 +93,6 @@ void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 	if(name.empty())
 		name = "10";
 
-	/*time_t now = time(NULL);
-	tm *ltm = gmtime(&now);
-	if((ltm->tm_hour == 4 && ltm->tm_min > 58) || (ltm->tm_hour == 5 && ltm->tm_min < 5))
-	{
-		disconnectClient(0x0A, "Lordaeron is at global save, please come back in 10 minutes");
-		return;
-	}*/
-
 	if(version < CLIENT_VERSION_MIN || version > CLIENT_VERSION_MAX)
 	{
 		disconnectClient(0x0A, CLIENT_VERSION_STRING);
@@ -133,6 +125,13 @@ void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 #endif
 #endif
 
+	Dispatcher::getInstance().addTask(createTask(boost::bind(
+		&ProtocolLogin::delegate, this, name, password, version)));
+}
+
+void ProtocolLogin::delegate(const std::string& name, const std::string& password, uint16_t version)
+{
+	uint32_t clientIp = getConnection()->getIP();
 	if(ConnectionManager::getInstance()->isDisabled(clientIp, protocolId))
 	{
 		disconnectClient(0x0A, "Too many connections attempts from your IP address, please try again later.");
