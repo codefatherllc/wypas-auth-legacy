@@ -1,11 +1,11 @@
-noinst_PROGRAMS = forgottenloginserver
+noinst_PROGRAMS = theforgottenloginserver
 
 CXXFLAGS = -pipe -g
 AM_CXXFLAGS = $(XML_CPPFLAGS) $(OTSERV_FLAGS) $(LUA_CFLAGS) $(DEBUG_FLAGS)\
 $(MYSQL_FLAGS) $(SQLITE_FLAGS) $(PGSQL_FLAGS) $(PROFILER_FLAGS)\
 $(OPTIONAL_FLAGS) -D_THREAD_SAFE -D_REENTRANT -Wall -Wextra -Werror -Wno-strict-aliasing
 
-forgottenloginserver_LDADD = $(LUA_LIBS)
+theforgottenloginserver_LDADD = $(LUA_LIBS)
 
 if USE_MYSQL
 MAYBE_MYSQL = databasemysql.cpp databasemysql.h
@@ -17,7 +17,7 @@ if USE_PGSQL
 MAYBE_PGSQL = databasepgsql.cpp databasepgsql.h
 endif
 
-forgottenloginserver_SOURCES = config.h configmanager.cpp configmanager.h connection.cpp \
+theforgottenloginserver_SOURCES = config.h configmanager.cpp configmanager.h connection.cpp \
 	connection.h const.h database.cpp database.h $(MAYBE_MYSQL) \
 	$(MAYBE_SQLITE) $(MAYBE_PGSQL) $(MAYBE_ODBC) dispatcher.cpp dispatcher.h \
 	gameservers.cpp gameservers.h io.cpp io.h networkmessage.cpp networkmessage.h \
