@@ -42,8 +42,13 @@ fi
 
 # Get number cores
 CORES=`grep processor /proc/cpuinfo | wc -l`
-# Set make processes - 1 + number of cores
-MAKEOPT=$(($CORES + 1))
+
+MAKEOPT=2
+if [ "$1" == "fast" ]; then
+	# Set make processes - 1 + number of cores
+	MAKEOPT=$(($CORES + 1))
+fi
+
 echo ""
 echo "Start building on $CORES cores, using $MAKEOPT processes"
 echo ""

@@ -15,8 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ////////////////////////////////////////////////////////////////////////
 
-#ifndef __TASKS__
-#define __TASKS__
+#ifndef __DISPATCHER__
+#define __DISPATCHER__
 #include "otsystem.h"
 
 #include <boost/function.hpp>
@@ -70,26 +70,36 @@ class Dispatcher
 
 		void stop();
 		void shutdown();
-		void exit() {m_thread.join();}
+		void exit() {if(m_thread.joinable()) m_thread.join();}
 
-		static void dispatcherThread(void* p);
+		virtual void tasksThread();
 
 	protected:
-		void flush();
-
+		virtual void flush();
 		Dispatcher();
-		enum DispatcherState
-		{
-			STATE_RUNNING,
-			STATE_CLOSING,
-			STATE_TERMINATED
-		};
 
 		boost::thread m_thread;
 		boost::mutex m_taskLock;
 		boost::condition_variable m_taskSignal;
 
 		std::list<Task*> m_taskList;
-		static DispatcherState m_threadState;
+		ThreadState_t m_threadState;
+};
+
+class Helper : public Dispatcher
+{
+	public:
+		virtual ~Helper() {}
+		static Helper& getInstance()
+		{
+			static Helper helper;
+			return helper;
+		}
+
+		virtual void tasksThread();
+
+	protected:
+		virtual void flush();
+		Helper();
 };
 #endif

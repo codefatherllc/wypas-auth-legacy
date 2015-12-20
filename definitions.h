@@ -18,22 +18,18 @@
 #ifndef __DEFINITIONS__
 #define __DEFINITIONS__
 
-#define CLIENT_VERSION_MIN 854
+#define CLIENT_VERSION_MIN 963
 #define CLIENT_VERSION_MAX 963
-#define CLIENT_VERSION_STRING "Only clients with specific protocol allowed!"
+#define CLIENT_VERSION_STRING "WypasOTS has been updated, please restart the game using launcher!"
 
-//#define CLIENT_VERSION_DAT 1378396598
-//#define CLIENT_VERSION_SPR 1378396690
+#define CLIENT_VERSION_DAT 1450395892
+#define CLIENT_VERSION_SPR 1450395892
 #define CLIENT_VERSION_PIC 1378392606
-#define CLIENT_VERSION_DATA "Outdated data files, please update your client using our launcher!"
+#define CLIENT_VERSION_DATA "WypasOTS has been updated, please restart the game using launcher!"
 
-//#define SOFTWARE_NAME "The Forgotten Login Server"
 #define SOFTWARE_NAME "Wypas Server"
-//#define SOFTWARE_VERSION "0.3"
-#define SOFTWARE_VERSION "1.11"
-//#define SOFTWARE_CODENAME "Dancing Donkey"
-#define SOFTWARE_CODENAME "TFLS"
-//#define SOFTWARE_PROTOCOL "9.44"
+#define SOFTWARE_VERSION "1.2"
+#define SOFTWARE_CODENAME "TFLS 1.0"
 #define SOFTWARE_PROTOCOL "9.63"
 
 #define NETWORK_RETRY_TIMEOUT 5000
@@ -53,6 +49,13 @@ enum DatabaseEngine_t
 	DATABASE_ENGINE_MYSQL,
 	DATABASE_ENGINE_SQLITE,
 	DATABASE_ENGINE_POSTGRESQL,
+};
+
+enum ThreadState_t
+{
+	STATE_RUNNING = 0,
+	STATE_CLOSING,
+	STATE_TERMINATED
 };
 
 enum Encryption_t

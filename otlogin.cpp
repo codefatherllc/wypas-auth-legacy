@@ -43,7 +43,6 @@
 
 #include "protocollogin.h"
 #include "protocolold.h"
-#include "protocolhttp.h"
 #include "status.h"
 
 #include "database.h"
@@ -485,9 +484,7 @@ void otlogin(StringVec, ServiceManager* services)
 	services->add<ProtocolLogin>(g_config.getNumber(ConfigManager::LOGIN_PORT), ipList);
 	services->add<ProtocolOldLogin>(g_config.getNumber(ConfigManager::LOGIN_PORT), ipList);
 
-	//services->add<ProtocolHTTP>(8080, ipList);
 	std::clog << "> Bound ports: ";
-
 	std::list<uint16_t> ports = services->getPorts();
 	for(std::list<uint16_t>::iterator it = ports.begin(); it != ports.end(); ++it)
 		std::clog << (*it) << "\t";

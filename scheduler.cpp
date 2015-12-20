@@ -16,59 +16,48 @@
 ////////////////////////////////////////////////////////////////////////
 #include "otpch.h"
 #include "scheduler.h"
-#if defined __EXCEPTION_TRACER__
-#include "exception.h"
-#endif
-
-Scheduler::SchedulerState Scheduler::m_threadState = Scheduler::STATE_TERMINATED;
 
 Scheduler::Scheduler()
 {
 	m_lastEvent = 0;
-	Scheduler::m_threadState = STATE_RUNNING;
-	m_thread = boost::thread(boost::bind(&Scheduler::schedulerThread, (void*)this));
+	m_threadState = STATE_RUNNING;
+	m_thread = boost::thread(boost::bind(&Scheduler::schedulerThread, this));
 }
 
-void Scheduler::schedulerThread(void* p)
+void Scheduler::schedulerThread()
 {
-	Scheduler* scheduler = (Scheduler*)p;
-	#if defined __EXCEPTION_TRACER__
-	ExceptionHandler schedulerExceptionHandler;
-	schedulerExceptionHandler.InstallHandler();
-	#endif
-
-	boost::unique_lock<boost::mutex> eventLockUnique(scheduler->m_eventLock, boost::defer_lock);
-	while(Scheduler::m_threadState != Scheduler::STATE_TERMINATED)
+	boost::unique_lock<boost::mutex> eventLockUnique(m_eventLock, boost::defer_lock);
+	while(m_threadState != STATE_TERMINATED)
 	{
 		SchedulerTask* task = NULL;
 		bool run = false, action = false;
 
 		// check if there are events waiting...
 		eventLockUnique.lock();
-		if(scheduler->m_eventList.empty()) // unlock mutex and wait for signal
-			scheduler->m_eventSignal.wait(eventLockUnique);
+		if(m_eventList.empty()) // unlock mutex and wait for signal
+			m_eventSignal.wait(eventLockUnique);
 		else // unlock mutex and wait for signal or timeout
-			action = scheduler->m_eventSignal.timed_wait(eventLockUnique, scheduler->m_eventList.top()->getCycle());
+			action = m_eventSignal.timed_wait(eventLockUnique, m_eventList.top()->getCycle());
 
 		// the mutex is locked again now...
-		if(!action && Scheduler::m_threadState != Scheduler::STATE_TERMINATED)
+		if(!action && m_threadState != STATE_TERMINATED)
 		{
 			// ok we had a timeout, so there has to be an event we have to execute...
-			task = scheduler->m_eventList.top();
-			scheduler->m_eventList.pop();
+			task = m_eventList.top();
+			m_eventList.pop();
 
 			// check if the event was stopped
-			EventIds::iterator it = scheduler->m_eventIds.find(task->getEventId());
-			if(it != scheduler->m_eventIds.end())
+			EventIds::iterator it = m_eventIds.find(task->getEventId());
+			if(it != m_eventIds.end())
 			{
 				// was not stopped so we should run it
 				run = true;
-				scheduler->m_eventIds.erase(it);
+				m_eventIds.erase(it);
 			}
 		}
 
-		eventLockUnique.unlock();
 		// add task to dispatcher
+		eventLockUnique.unlock();
 		if(!task)
 			continue;
 
@@ -76,22 +65,18 @@ void Scheduler::schedulerThread(void* p)
 		if(run)
 		{
 			task->unsetExpiration();
-			Dispatcher::getInstance().addTask(task);
+			Dispatcher::getInstance().addTask(task, true);
 		}
 		else
 			delete task; // was stopped, have to be deleted here
 	}
-
-	#if defined __EXCEPTION_TRACER__
-	schedulerExceptionHandler.RemoveHandler();
-	#endif
 }
 
 uint32_t Scheduler::addEvent(SchedulerTask* task)
 {
 	bool signal = false;
 	m_eventLock.lock();
-	if(Scheduler::m_threadState == Scheduler::STATE_RUNNING)
+	if(m_threadState == STATE_RUNNING)
 	{
 		// check if the event has a valid id
 		if(!task->getEventId())
@@ -113,10 +98,17 @@ uint32_t Scheduler::addEvent(SchedulerTask* task)
 		// we have to signal it
 		signal = (task == m_eventList.top());
 	}
-#ifdef __DEBUG_SCHEDULER__
 	else
+	{
+		#ifdef __DEBUG_SCHEDULER__
 		std::clog << "[Error - Scheduler::addTask] Scheduler thread is terminated." << std::endl;
-#endif
+		#endif
+		m_eventLock.unlock();
+		delete task;
+
+		task = NULL;
+		return 0;
+	}
 
 	m_eventLock.unlock();
 	if(signal)
@@ -149,14 +141,14 @@ bool Scheduler::stopEvent(uint32_t eventId)
 void Scheduler::stop()
 {
 	m_eventLock.lock();
-	m_threadState = Scheduler::STATE_CLOSING;
+	m_threadState = STATE_CLOSING;
 	m_eventLock.unlock();
 }
 
 void Scheduler::shutdown()
 {
 	m_eventLock.lock();
-	m_threadState = Scheduler::STATE_TERMINATED;
+	m_threadState = STATE_TERMINATED;
 	//this list should already be empty
 	while(!m_eventList.empty())
 		m_eventList.pop();

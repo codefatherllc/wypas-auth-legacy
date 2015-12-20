@@ -71,18 +71,12 @@ class Scheduler
 
 		void stop();
 		void shutdown();
-		void exit() {m_thread.join();}
+		void exit() {if(m_thread.joinable()) m_thread.join();}
 
-		static void schedulerThread(void* p);
+		void schedulerThread();
 
 	protected:
 		Scheduler();
-		enum SchedulerState
-		{
-			STATE_RUNNING,
-			STATE_CLOSING,
-			STATE_TERMINATED
-		};
 
 		uint32_t m_lastEvent;
 		EventIds m_eventIds;
@@ -92,6 +86,6 @@ class Scheduler
 		boost::condition_variable m_eventSignal;
 
 		std::priority_queue<SchedulerTask*, std::vector<SchedulerTask*>, lessTask > m_eventList;
-		static SchedulerState m_threadState;
+		ThreadState_t m_threadState;
 };
 #endif
