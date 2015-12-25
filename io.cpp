@@ -36,7 +36,7 @@ extern ConfigManager g_config;
 bool IO::loadAccount(Account& account, const std::string& name)
 {
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 
 	query << "SELECT `id`, `password`, `salt`, `premdays`, `lastday`, `key`, `warnings` FROM `accounts` WHERE `name` " << db->getStringComparer() << db->escapeString(name) << " LIMIT 1";
 	DBResult* result;
@@ -81,7 +81,7 @@ bool IO::loadAccount(Account& account, const std::string& name)
 Account IO::loadAccount(uint32_t accountId)
 {
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 
 	query << "SELECT `name`, `password`, `salt`, `premdays`, `lastday`, `key`, `warnings` FROM `accounts` WHERE `id` = " << accountId << " LIMIT 1";
 	DBResult* result;
@@ -105,7 +105,7 @@ Account IO::loadAccount(uint32_t accountId)
 bool IO::saveAccount(Account account)
 {
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 	query << "UPDATE `accounts` SET `premdays` = " << account.premiumDays << ", `warnings` = " << account.warnings << ", `lastday` = " << account.lastDay << " WHERE `id` = " << account.number << db->getUpdateLimiter();
 	return db->query(query.str());
 }
@@ -121,7 +121,7 @@ bool IO::getNameByGuid(uint32_t guid, std::string& name)
 
 	Database* db = Database::getInstance();
 	DBResult* result;
-	DBQuery query;
+	std::ostringstream query;
 
 	query << "SELECT `name` FROM `players` WHERE `id` = " << guid << " AND `deleted` = 0 LIMIT 1";
 	if(!(result = db->storeQuery(query.str())))
@@ -134,16 +134,14 @@ bool IO::getNameByGuid(uint32_t guid, std::string& name)
 	return true;
 }
 
-void IO::removePremium(Account& account)
+void IO::updatePremium(Account& account)
 {
 	uint64_t now = time(NULL);
+	if(account.lastDay > now || (now - account.lastDay) < 86400)
+		return;
+
 	bool save = false;
-	if(account.lastDay > now)
-	{
-		account.lastDay = now;
-		save = true;
-	}
-	else if(account.premiumDays > 0 && account.premiumDays < (uint16_t)GRATIS_PREMIUM)
+	if(account.premiumDays > 0 && account.premiumDays < (uint16_t)GRATIS_PREMIUM)
 	{
 		if(account.lastDay == 0)
 		{
@@ -155,6 +153,7 @@ void IO::removePremium(Account& account)
 			uint32_t days = (now - account.lastDay) / 86400;
 			if(days > 0)
 			{
+				save = true;
 				if(account.premiumDays >= days)
 				{
 					account.premiumDays -= days;
@@ -165,8 +164,6 @@ void IO::removePremium(Account& account)
 					account.premiumDays = 0;
 					account.lastDay = 0;
 				}
-
-				save = true;
 			}
 		}
 	}
@@ -180,10 +177,10 @@ void IO::removePremium(Account& account)
 		std::clog << "> ERROR: Failed to save account: " << account.name << "!" << std::endl;
 }
 
-bool IO::updatePremiumDays()
+bool IO::updatePremium()
 {
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 
 	DBTransaction trans(db);
 	if(!trans.begin())
@@ -196,7 +193,7 @@ bool IO::updatePremiumDays()
 
 	Account account;
 	do
-		removePremium((account = loadAccount(result->getDataInt("id"))));
+		updatePremium((account = loadAccount(result->getDataInt("id"))));
 	while(result->next());
 	result->free();
 
@@ -212,7 +209,7 @@ bool IO::isIpBanished(uint32_t ip, uint32_t mask/* = 0xFFFFFFFF*/) const
 	Database* db = Database::getInstance();
 	DBResult* result;
 
-	DBQuery query;
+	std::ostringstream query;
 	query << "SELECT `id`, `value`, `param`, `expires` FROM `bans` WHERE `type` = " << BAN_IP << " AND `active` = 1";
 	if(!(result = db->storeQuery(query.str())))
 		return false;
@@ -234,7 +231,7 @@ bool IO::isIpBanished(uint32_t ip, uint32_t mask/* = 0xFFFFFFFF*/) const
 bool IO::checkBanishments() const
 {
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 
 	query << "UPDATE `bans` SET `active` = 0 WHERE `active` = 1 AND `expires` > 0 AND `expires` <= " << time(NULL);
 	return db->query(query.str());
@@ -243,7 +240,7 @@ bool IO::checkBanishments() const
 bool IO::getBanishment(Ban& ban) const
 {
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 
 	query << "SELECT * FROM `bans` WHERE `value` = " << ban.value;
 	if(ban.param)

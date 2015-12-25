@@ -38,10 +38,12 @@
 class DatabaseMySQL : public _Database
 {
 	public:
-		DatabaseMySQL();
+		DatabaseMySQL():
+			m_handle(new MYSQL), m_timeoutTask(0) {}
 		DATABASE_VIRTUAL ~DatabaseMySQL();
 
-		DATABASE_VIRTUAL bool getParam(DBParam_t param);
+		DATABASE_VIRTUAL bool connect();
+		DATABASE_VIRTUAL bool isMultiLine() {return true;}
 
 		DATABASE_VIRTUAL bool beginTransaction() {return query("BEGIN");}
 		DATABASE_VIRTUAL bool rollback();

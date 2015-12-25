@@ -38,7 +38,7 @@
 
 #include "server.h"
 #include "networkmessage.h"
-#include "dispatcher.h"
+#include "tasks.h"
 #include "scheduler.h"
 
 #include "protocollogin.h"
@@ -232,7 +232,7 @@ void otlogin(StringVec, ServiceManager* services)
 		<< "Compiled with " << BOOST_COMPILER << " (x86_64: " << __x86_64__ << ") at " << __DATE__ << ", " << __TIME__ << "." << std::endl
 		<< "A login server developed by Elf." << std::endl
 		<< "Visit our forum for updates, support and resources: http://otland.net." << std::endl << std::endl;
-	std::stringstream ss;
+	std::ostringstream ss;
 #ifdef __DEBUG__
 	ss << " GLOBAL";
 #endif
@@ -398,7 +398,7 @@ void otlogin(StringVec, ServiceManager* services)
 	else
 	{
 		ERR_load_crypto_strings();
-		std::stringstream s;
+		std::ostringstream s;
 
 		s << std::endl << "> OpenSSL failed - " << ERR_error_string(ERR_get_error(), NULL);
 		startupErrorMessage(s.str());
@@ -406,16 +406,18 @@ void otlogin(StringVec, ServiceManager* services)
 
 	std::clog << ">> Starting SQL connection" << std::endl;
 	Database* db = Database::getInstance();
-	if(!db || !db->isConnected())
+	if(!db || !db->connect())
 		startupErrorMessage("Couldn't estabilish connection to SQL database!");
 
 	std::clog << ">> Loading game servers" << std::endl;
 	if(!GameServers::getInstance()->loadFromXml(true))
 		startupErrorMessage("Unable to load game servers!");
 
-	std::clog << ">> Updating premium status" << std::endl;
 	if(g_config.getBool(ConfigManager::INIT_PREMIUM_UPDATE))
-		IO::getInstance()->updatePremiumDays();
+	{
+		std::clog << ">> Updating premium status" << std::endl;
+		IO::getInstance()->updatePremium();
+	}
 
 	std::clog << ">> Starting to dominate the world... done." << std::endl
 		<< ">> Binding services..." << std::endl;
@@ -457,7 +459,7 @@ void otlogin(StringVec, ServiceManager* services)
 		{
 			if(hostent* host = gethostbyname(hostName))
 			{
-				std::stringstream s;
+				std::ostringstream s;
 				for(uint8_t** addr = (uint8_t**)host->h_addr_list; addr[0]; addr++)
 				{
 					uint32_t resolved = swap_uint32(*(uint32_t*)(*addr));

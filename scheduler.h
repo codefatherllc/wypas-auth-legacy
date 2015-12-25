@@ -19,10 +19,10 @@
 #define __SCHEDULER__
 #include "otsystem.h"
 
-#include "dispatcher.h"
+#include "tasks.h"
 #define SCHEDULER_MINTICKS 50
 
-class SchedulerTask : public Task
+class SchedulerTask : public CallbackTask
 {
 	public:
 		virtual ~SchedulerTask() {}
@@ -37,7 +37,7 @@ class SchedulerTask : public Task
 		uint32_t m_eventId;
 
 		SchedulerTask(uint32_t delay, const boost::function<void (void)>& f):
-			Task(delay, f), m_eventId(0) {}
+			CallbackTask(delay, f), m_eventId(0) {}
 		friend SchedulerTask* createSchedulerTask(uint32_t, const boost::function<void (void)>&);
 };
 

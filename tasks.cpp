@@ -15,7 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ////////////////////////////////////////////////////////////////////////
 #include "otpch.h"
-#include "dispatcher.h"
+#include "tasks.h"
+
 #include "outputmessage.h"
 
 Dispatcher::Dispatcher()
@@ -26,7 +27,6 @@ Dispatcher::Dispatcher()
 
 void Dispatcher::tasksThread()
 {
-	OutputMessagePool* outputPool = NULL;
 	boost::unique_lock<boost::mutex> taskLockUnique(m_taskLock, boost::defer_lock);
 	while(m_threadState != STATE_TERMINATED)
 	{
@@ -50,10 +50,13 @@ void Dispatcher::tasksThread()
 
 		if(!task->hasExpired())
 		{
-			if((outputPool = OutputMessagePool::getInstance()))
+			OutputMessagePool* outputPool = OutputMessagePool::getInstance();
+			if(outputPool)
 				outputPool->startExecutionFrame();
 
-			(*task)();
+			if(CallbackTask* ct = task->getCallback())
+				(*ct)();
+
 			if(outputPool)
 				outputPool->sendAll();
 		}
@@ -91,14 +94,14 @@ void Dispatcher::addTask(Task* task, bool front/* = false*/)
 
 void Dispatcher::flush()
 {
-	Task* task = NULL;
 	OutputMessagePool* outputPool = OutputMessagePool::getInstance();
 	while(!m_taskList.empty())
 	{
-		task = m_taskList.front();
+		Task* task = m_taskList.front();
 		m_taskList.pop_front();
+		if(CallbackTask* ct = task->getCallback())
+			(*ct)();
 
-		(*task)();
 		delete task;
 		if(outputPool)
 			outputPool->sendAll();
@@ -119,53 +122,4 @@ void Dispatcher::shutdown()
 
 	flush();
 	m_taskLock.unlock();
-}
-
-Helper::Helper()
-{
-	m_threadState = STATE_RUNNING;
-	m_thread = boost::thread(boost::bind(&Helper::tasksThread, this));
-}
-
-void Helper::tasksThread()
-{
-	boost::unique_lock<boost::mutex> taskLockUnique(m_taskLock, boost::defer_lock);
-	while(m_threadState != STATE_TERMINATED)
-	{
-		Task* task = NULL;
-		// check if there are tasks waiting
-		taskLockUnique.lock();
-		if(m_taskList.empty()) //if the list is empty wait for signal
-			m_taskSignal.wait(taskLockUnique);
-
-		if(!m_taskList.empty() && m_threadState != STATE_TERMINATED)
-		{
-			// take the first task
-			task = m_taskList.front();
-			m_taskList.pop_front();
-		}
-
-		taskLockUnique.unlock();
-		// finally execute the task...
-		if(!task)
-			continue;
-
-		if(!task->hasExpired())
-			(*task)();
-
-		delete task;
-	}
-}
-
-void Helper::flush()
-{
-	Task* task = NULL;
-	while(!m_taskList.empty())
-	{
-		task = m_taskList.front();
-		m_taskList.pop_front();
-
-		(*task)();
-		delete task;
-	}
 }

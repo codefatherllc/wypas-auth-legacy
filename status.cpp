@@ -111,7 +111,7 @@ std::string Status::getStatusString(bool sendPlayers) const
 	xmlNodePtr root = doc->children;
 
 	Database* db = Database::getInstance();
-	DBQuery query;
+	std::ostringstream query;
 
 	char buffer[90];
 	xmlSetProp(root, (const xmlChar*)"version", (const xmlChar*)"1.0");
@@ -168,7 +168,7 @@ std::string Status::getStatusString(bool sendPlayers) const
 	xmlSetProp(p, (const xmlChar*)"peak", (const xmlChar*)buffer);
 	if(sendPlayers)
 	{
-		std::stringstream ss;
+		std::ostringstream ss;
 		query << "SELECT `name`, `vocation_id`, `promotion`, `level` FROM `players` WHERE `online` > 0";
 		if(DBResult* result = db->storeQuery(query.str()))
 		{
@@ -261,7 +261,7 @@ void Status::getInfo(uint32_t requestedInfo, OutputMessage_ptr output, NetworkMe
 	if(requestedInfo & REQUEST_PLAYERS_INFO)
 	{
 		output->put<char>(0x20);
-		DBQuery query;
+		std::ostringstream query;
 
 		query << "SELECT COUNT(`id`) AS `count` FROM `players` WHERE `online` > 0";
 		if(DBResult* result = db->storeQuery(query.str()))
@@ -305,7 +305,7 @@ void Status::getInfo(uint32_t requestedInfo, OutputMessage_ptr output, NetworkMe
 		output->put<char>(0x21);
 		std::list<std::pair<std::string, uint32_t> > players;
 
-		DBQuery query;
+		std::ostringstream query;
 		query << "SELECT `name`, `level` FROM `players` WHERE `online` > 0";
 		if(DBResult* result = db->storeQuery(query.str()))
 		{
@@ -328,7 +328,7 @@ void Status::getInfo(uint32_t requestedInfo, OutputMessage_ptr output, NetworkMe
 		output->put<char>(0x22);
 		const std::string name = msg.getString();
 
-		DBQuery query;
+		std::ostringstream query;
 		query << "SELECT `online` FROM `players` WHERE `name` LIKE " << db->escapeString(name) << " LIMIT 1;";
 		if(DBResult* result = db->storeQuery(query.str()))
 		{

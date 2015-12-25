@@ -24,16 +24,12 @@
 #ifdef __USE_SQLITE__
 #include "databasesqlite.h"
 #endif
-#ifdef __USE_PGSQL__
-#include "databasepgsql.h"
-#endif
 
 #if defined MULTI_SQL_DRIVERS
 #include "configmanager.h"
 extern ConfigManager g_config;
 #endif
 
-boost::recursive_mutex DBQuery::databaseLock;
 Database* _Database::m_instance = NULL;
 
 Database* _Database::getInstance()
@@ -48,10 +44,6 @@ Database* _Database::getInstance()
 #ifdef __USE_SQLITE__
 		else if(g_config.getString(ConfigManager::SQL_TYPE) == "sqlite")
 			m_instance = new DatabaseSQLite;
-#endif
-#ifdef __USE_PGSQL__
-		else if(g_config.getString(ConfigManager::SQL_TYPE) == "pgsql")
-			m_instance = new DatabasePgSQL;
 #endif
 #else
 		m_instance = new Database;
@@ -76,7 +68,7 @@ DBInsert::DBInsert(Database* db)
 	m_db = db;
 	m_rows = 0;
 	// checks if current database engine supports multiline INSERTs
-	m_multiLine = m_db->getParam(DBPARAM_MULTIINSERT);
+	m_multiLine = m_db->isMultiLine();
 }
 
 void DBInsert::setQuery(std::string query)
@@ -109,7 +101,7 @@ bool DBInsert::addRow(std::string row)
 	return true;
 }
 
-bool DBInsert::addRow(std::stringstream& row)
+bool DBInsert::addRow(std::ostringstream& row)
 {
 	bool ret = addRow(row.str());
 	row.str("");
@@ -121,10 +113,9 @@ bool DBInsert::execute()
 	if(!m_multiLine || m_buf.length() < 1 || !m_rows) // INSERTs were executed on-fly or there's no rows to execute
 		return true;
 
-	m_rows = 0;
 	// executes buffer
 	bool ret = m_db->query(m_query + m_buf);
-
+	m_rows = 0;
 	m_buf = "";
 	return ret;
 }

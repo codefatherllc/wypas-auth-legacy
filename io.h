@@ -81,8 +81,8 @@ class IO
 		bool loadAccount(Account& account, const std::string& name);
 		bool getNameByGuid(uint32_t guid, std::string& name);
 
-		void removePremium(Account& account);
-		bool updatePremiumDays();
+		void updatePremium(Account& account);
+		bool updatePremium();
 
 		bool isIpBanished(uint32_t ip, uint32_t mask = 0xFFFFFFFF) const;
 		bool checkBanishments() const;

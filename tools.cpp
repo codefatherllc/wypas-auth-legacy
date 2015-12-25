@@ -20,6 +20,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include <boost/filesystem.hpp>
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 
@@ -317,7 +318,7 @@ bool parseXMLContentString(xmlNodePtr node, std::string& value)
 
 std::string getLastXMLError()
 {
-	std::stringstream ss;
+	std::ostringstream ss;
 	xmlErrorPtr lastError = xmlGetLastError();
 	if(lastError->line)
 		ss << "Line: " << lastError->line << ", ";
@@ -642,7 +643,7 @@ std::string formatDate(time_t _time/* = 0*/)
 		_time = time(NULL);
 
 	const tm* tms = localtime(&_time);
-	std::stringstream s;
+	std::ostringstream s;
 	if(tms)
 		s << tms->tm_mday << "/" << (tms->tm_mon + 1) << "/" << (tms->tm_year + 1900) << " " << tms->tm_hour << ":" << tms->tm_min << ":" << tms->tm_sec;
 	else
@@ -674,7 +675,7 @@ std::string formatTime(time_t _time/* = 0*/, bool ms/* = false*/)
 		ms = false;
 
 	const tm* tms = localtime(&_time);
-	std::stringstream s;
+	std::ostringstream s;
 	if(tms)
 	{
 		s << tms->tm_hour << ":" << tms->tm_min << ":";
@@ -731,14 +732,9 @@ bool parseIntegerVec(std::string str, IntegerVec& intVector)
 	return true;
 }
 
-bool fileExists(const char* filename)
+bool fileExists(const std::string& filename)
 {
-	FILE* f = fopen(filename, "rb");
-	if(!f)
-		return false;
-
-	fclose(f);
-	return true;
+	return boost::filesystem::exists(filename);
 }
 
 uint32_t adlerChecksum(uint8_t* data, size_t length)

@@ -33,14 +33,13 @@
 
 extern ConfigManager g_config;
 
-DatabaseMySQL::DatabaseMySQL() :
-	m_handle(new MYSQL), m_timeoutTask(0)
+bool DatabaseMySQL::connect()
 {
 	m_connected = false;
 	if(!mysql_init(m_handle))
 	{
 		std::clog << std::endl << "Failed to initialize MySQL connection handler." << std::endl;
-		return;
+		return false;
 	}
 
 	int32_t timeout = g_config.getNumber(ConfigManager::MYSQL_READ_TIMEOUT);
@@ -62,7 +61,7 @@ DatabaseMySQL::DatabaseMySQL() :
 		NULL, 0))
 	{
 		std::clog << std::endl << "Failed connecting to database - MYSQL ERROR: " << mysql_error(m_handle) << " (" << mysql_errno(m_handle) << ")" << std::endl;
-		return;
+		return false;
 	}
 
 	m_connected = true;
@@ -73,19 +72,17 @@ DatabaseMySQL::DatabaseMySQL() :
 	if(timeout)
 		m_timeoutTask = Scheduler::getInstance().addEvent(createSchedulerTask(timeout,
 			boost::bind(&DatabaseMySQL::keepAlive, this)));
+
+	return true;
 }
 
 DatabaseMySQL::~DatabaseMySQL()
 {
-	mysql_close(m_handle);
-	delete m_handle;
 	if(m_timeoutTask != 0)
 		Scheduler::getInstance().stopEvent(m_timeoutTask);
-}
 
-bool DatabaseMySQL::getParam(DBParam_t param)
-{
-	return param == DBPARAM_MULTIINSERT;
+	mysql_close(m_handle);
+	delete m_handle;
 }
 
 bool DatabaseMySQL::rollback()
@@ -121,10 +118,7 @@ bool DatabaseMySQL::query(std::string query)
 	if(!m_connected)
 		return false;
 
-	bool result = true;
-#ifdef __SQL_QUERY_DEBUG__
-	std::clog << "MYSQL DEBUG, query: " << query.c_str() << std::endl;
-#endif
+	m_lock.lock();
 	if(mysql_real_query(m_handle, query.c_str(), query.length()))
 	{
 		int32_t error = mysql_errno(m_handle);
@@ -132,13 +126,16 @@ bool DatabaseMySQL::query(std::string query)
 			m_connected = false;
 
 		std::clog << "mysql_real_query(): " << query << " - MYSQL ERROR: " << mysql_error(m_handle) << " (" << error << ")" << std::endl;
-		result = false;
+		m_lock.unlock();
+		return false;
 	}
 
-	if(MYSQL_RES* tmp = mysql_store_result(m_handle))
+	MYSQL_RES* tmp = mysql_store_result(m_handle);
+	m_lock.unlock();
+	if(tmp)
 		mysql_free_result(tmp);
 
-	return result;
+	return true;
 }
 
 DBResult* DatabaseMySQL::storeQuery(std::string query)
@@ -147,9 +144,7 @@ DBResult* DatabaseMySQL::storeQuery(std::string query)
 		return NULL;
 
 	int32_t error = 0;
-#ifdef __SQL_QUERY_DEBUG__
-	std::clog << "MYSQL DEBUG, storeQuery: " << query.c_str() << std::endl;
-#endif
+	m_lock.lock();
 	if(mysql_real_query(m_handle, query.c_str(), query.length()))
 	{
 		error = mysql_errno(m_handle);
@@ -157,11 +152,13 @@ DBResult* DatabaseMySQL::storeQuery(std::string query)
 			m_connected = false;
 
 		std::clog << "mysql_real_query(): " << query << " - MYSQL ERROR: " << mysql_error(m_handle) << " (" << error << ")" << std::endl;
+		m_lock.unlock();
 		return NULL;
 	}
 
 	if(MYSQL_RES* _result = mysql_store_result(m_handle))
 	{
+		m_lock.unlock();
 		DBResult* result = (DBResult*)new MySQLResult(_result);
 		return verifyResult(result);
 	}
@@ -171,6 +168,7 @@ DBResult* DatabaseMySQL::storeQuery(std::string query)
 		m_connected = false;
 
 	std::clog << "mysql_store_result(): " << query << " - MYSQL ERROR: " << mysql_error(m_handle) << " (" << error << ")" << std::endl;
+	m_lock.unlock();
 	return NULL;
 }
 

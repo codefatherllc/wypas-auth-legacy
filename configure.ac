@@ -43,8 +43,6 @@ AC_SUBST(DEBUG_FLAGS)
 
 AM_CONDITIONAL(USE_MYSQL, false)
 useMySQL=no
-AM_CONDITIONAL(USE_PGSQL, false)
-usePostgreSQL=no
 AM_CONDITIONAL(USE_SQLITE, false)
 useSQLite=no
 
@@ -54,14 +52,6 @@ AC_ARG_ENABLE(mysql, [  --enable-mysql		enable MySQL support], [
 	MYSQL_FLAGS=-D__USE_MYSQL__
 	AC_SUBST(MYSQL_FLAGS)
 	useMySQL=yes
-])
-
-# check if we want postgresql enabled
-AC_ARG_ENABLE(pgsql, [  --enable-pgsql		enable PostgreSQL support], [
-	AM_CONDITIONAL(USE_PGSQL, true)
-	PGSQL_FLAGS="-D__USE_PGSQL__ -I`pg_config --includedir`"
-	AC_SUBST(PGSQL_FLAGS)
-	usePostgreSQL=yes
 ])
 
 # check if we want sqlite enabled
@@ -134,6 +124,14 @@ AC_CHECK_LIB(boost_system-gcc-mt, main, , [
 	])
 ])
 
+AC_CHECK_LIB(boost_filesystem-gcc-mt, main, , [
+	AC_CHECK_LIB(boost_filesystem-mt, main, , [
+		AC_CHECK_LIB(boost_filesystem, main, , [
+			AC_MSG_ERROR("Linking against boost::filesystem library failed.")
+		])
+	])
+])
+
 # check for boost::unordered_set (should only check if gnu compiler version is below 4)
 # AC_CHECK_HEADERS([boost/tr1/unordered_set.hpp], , [AC_MSG_ERROR("boost::unordered_set header not found. Please update your boost to at least 1.40.")])
 
@@ -163,15 +161,13 @@ AC_SUBST(LUA_LIBS)
 
 if test "$useMySQL" = "no" ; then
 	if test "$useSQLite" = "no" ; then
-		if test "$usePostgreSQL" = "no" ; then
-			AM_CONDITIONAL(USE_SQLITE, true)
-			SQLITE_FLAGS=-D__USE_SQLITE__
-			AC_SUBST(SQLITE_FLAGS)
-			useSQLite=yes
+		AM_CONDITIONAL(USE_SQLITE, true)
+		SQLITE_FLAGS=-D__USE_SQLITE__
+		AC_SUBST(SQLITE_FLAGS)
+		useSQLite=yes
 
-			echo WARNING: Any of available database drivers was enabled, using SQLite as default. To enable a database driver, configure with --enable-\<driver\> \(example: --enable-mysql\)
-			echo
-		fi
+		echo WARNING: Any of available database drivers was enabled, using SQLite as default. To enable a database driver, configure with --enable-\<driver\> \(example: --enable-mysql\)
+		echo
 	fi
 fi
 
@@ -197,13 +193,6 @@ if test -n "$MYSQL_FLAGS"; then
 	AC_SUBST(MYSQL_LIBS)
 fi
 
-# check for postgresql if it is enabled
-if test -n "$PGSQL_FLAGS"; then
-	AC_CHECK_HEADERS([`pg_config --includedir`/libpq-fe.h],[PGSQL_LIBS=-lpg],[AC_MSG_ERROR("PostgreSQL headers missing.")])
-	AC_CHECK_LIB(pq, main,[],[AC_MSG_ERROR("Linking against libpq failed.")])
-	AC_SUBST(PGSQL_LIBS)
-fi
-
 # check for sqlite if it is enabled
 if test -n "$SQLITE_FLAGS"; then
 	AC_CHECK_HEADERS([sqlite3.h],[SQLITE_LIBS=-lsqlite3],[AC_MSG_ERROR("SQLite3 headers missing.")])
@@ -225,7 +214,6 @@ echo Debug build................. : $debugBuild
 echo
 echo Build with MySQL............ : $useMySQL
 echo Build with SQLite........... : $useSQLite
-echo Build with PostgreSQL....... : $usePostgreSQL
 echo
 
 echo Configure complete, now you may type \'./build.sh\'.

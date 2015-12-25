@@ -31,10 +31,11 @@
 class DatabaseSQLite : public _Database
 {
 	public:
-		DatabaseSQLite();
+		DatabaseSQLite():
+			m_handle(NULL) {}
 		DATABASE_VIRTUAL ~DatabaseSQLite() {sqlite3_close(m_handle);}
 
-		DATABASE_VIRTUAL bool getParam(DBParam_t) {return false;}
+		DATABASE_VIRTUAL bool connect();
 
 		DATABASE_VIRTUAL bool beginTransaction() {return query("BEGIN");}
 		DATABASE_VIRTUAL bool rollback() {return query("ROLLBACK");}

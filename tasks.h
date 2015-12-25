@@ -22,16 +22,16 @@
 #include <boost/function.hpp>
 #define DISPATCHER_TASK_EXPIRATION 2000
 
+class CallbackTask;
+
 class Task
 {
 	public:
-		Task(const boost::function<void (void)>& f): m_expiration(
-			boost::date_time::not_a_date_time), m_f(f) {}
-		Task(uint32_t ms, const boost::function<void (void)>& f): m_expiration(
-			boost::get_system_time() + boost::posix_time::milliseconds(ms)), m_f(f) {}
-
+		Task(boost::system_time expiration):
+			m_expiration(expiration) {}
 		virtual ~Task() {}
-		void operator()() {m_f();}
+
+		virtual CallbackTask* getCallback() {return NULL;}
 
 		void unsetExpiration() {m_expiration = boost::date_time::not_a_date_time;}
 		bool hasExpired() const
@@ -44,16 +44,34 @@ class Task
 
 	protected:
 		boost::system_time m_expiration;
-		boost::function<void (void)> m_f;
 };
 
-inline Task* createTask(boost::function<void (void)> f)
+class CallbackTask : public Task
 {
-	return new Task(f);
+	public:
+		virtual ~CallbackTask() {}
+
+		CallbackTask(const boost::function<void (void)>& callback):
+			Task(boost::date_time::not_a_date_time),
+			m_callback(callback) {}
+		CallbackTask(uint32_t ms, const boost::function<void (void)>& callback):
+			Task(boost::get_system_time() + boost::posix_time::milliseconds(ms)),
+			m_callback(callback) {}
+
+		void operator()() {if(m_callback) m_callback();}
+		virtual CallbackTask* getCallback() {return this;}
+
+	protected:
+		boost::function<void (void)> m_callback;
+};
+
+inline CallbackTask* createTask(boost::function<void (void)> f)
+{
+	return new CallbackTask(f);
 }
-inline Task* createTask(uint32_t expiration, boost::function<void (void)> f)
+inline CallbackTask* createTask(uint32_t expiration, boost::function<void (void)> f)
 {
-	return new Task(expiration, f);
+	return new CallbackTask(expiration, f);
 }
 
 class Dispatcher
@@ -84,22 +102,5 @@ class Dispatcher
 
 		std::list<Task*> m_taskList;
 		ThreadState_t m_threadState;
-};
-
-class Helper : public Dispatcher
-{
-	public:
-		virtual ~Helper() {}
-		static Helper& getInstance()
-		{
-			static Helper helper;
-			return helper;
-		}
-
-		virtual void tasksThread();
-
-	protected:
-		virtual void flush();
-		Helper();
 };
 #endif

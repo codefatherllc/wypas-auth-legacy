@@ -27,7 +27,7 @@
 #include "outputmessage.h"
 #include "connection.h"
 
-#include "dispatcher.h"
+#include "tasks.h"
 #include "configmanager.h"
 
 extern ConfigManager g_config;
@@ -166,10 +166,10 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 		else
 			IO::getInstance()->getNameByGuid(ban.adminId, name_);
 
-		std::stringstream ss;
-		ss << "Your account has been " << (deletion ? "deleted" : "banished") << " at:\n" << formatDateEx(ban.added, "%d %b %Y").c_str()
-			<< " by: " << name_.c_str() << ".\nThe comment given was:\n" << ban.comment.c_str() << ".\nYour " << (deletion ?
-			"account won't be undeleted" : "banishment will be lifted at:\n") << (deletion ? "" : formatDateEx(ban.expires).c_str()) << ".";
+		std::ostringstream ss;
+		ss << "Your account has been " << (deletion ? "deleted" : "banished") << " at:\n" << formatDateEx(ban.added, "%d %b %Y")
+			<< " by: " << name_ << ".\nThe comment given was:\n" << ban.comment << ".\nYour " << (deletion ?
+			"account won't be undeleted" : "banishment will be lifted at:\n") << (deletion ? "" : formatDateEx(ban.expires)) << ".";
 
 		disconnectClient(0x0A, ss.str().c_str());
 		return;
@@ -183,7 +183,7 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 	}
 
 	// remove premium days
-	IO::getInstance()->removePremium(account);
+	IO::getInstance()->updatePremium(account);
 	if(account.number != 10 && !charList.size())
 	{
 		disconnectClient(0x0A, std::string("This account does not contain any character for this client yet.\nCreate a new character on the "
@@ -206,7 +206,7 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 		if(account.number == 10)
 		{
 			Database* db = Database::getInstance();
-			DBQuery query;
+			std::ostringstream query;
 
 			query << "SELECT `name`, `world_id`, `level`, `broadcasting` FROM `players` WHERE `broadcasting` > 0";
 			if(DBResult* result = db->storeQuery(query.str()))
@@ -228,7 +228,7 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 				output->put<char>((uint8_t)tmp.size());
 				for(std::map<std::string, std::pair<bool, std::pair<GameServer*, int32_t> > >::iterator it = tmp.begin(); it != tmp.end(); ++it)
 				{
-					std::stringstream s;
+					std::ostringstream s;
 					s << it->second.second.second;
 
 					output->putString(it->first);

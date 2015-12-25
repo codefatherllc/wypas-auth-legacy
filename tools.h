@@ -130,6 +130,6 @@ std::string getLastXMLError();
 
 bool parseIntegerVec(std::string str, IntegerVec& intVector);
 
-bool fileExists(const char* filename);
+bool fileExists(const std::string& filename);
 std::string getFilePath(FileType_t type, std::string name = "");
 #endif
