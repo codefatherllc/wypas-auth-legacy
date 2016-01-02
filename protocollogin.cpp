@@ -125,12 +125,14 @@ void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 #endif
 #endif
 
-	Dispatcher::getInstance().addTask(createTask(boost::bind(
-		&ProtocolLogin::delegate, this, name, password, version)));
-}
+	time_t now = time(NULL);
+	tm* ltm = gmtime(&now);
+	if((ltm->tm_hour == 9 && ltm->tm_min > 54) && (ltm->tm_hour == 10 && ltm->tm_min < 5))
+	{
+		disconnectClient(0x0A, "Server is just going down for a global save, please come back later.");
+		return;
+	}
 
-void ProtocolLogin::delegate(const std::string& name, const std::string& password, uint16_t version)
-{
 	uint32_t clientIp = getConnection()->getIP();
 	if(ConnectionManager::getInstance()->isDisabled(clientIp, protocolId))
 	{
@@ -138,6 +140,12 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 		return;
 	}
 
+	Dispatcher::getInstance().addTask(createTask(boost::bind(
+		&ProtocolLogin::delegate, this, name, password, clientIp, version)));
+}
+
+void ProtocolLogin::delegate(const std::string& name, const std::string& password, uint32_t clientIp, uint16_t version)
+{
 	IO::getInstance()->checkBanishments();
 	if(IO::getInstance()->isIpBanished(clientIp))
 	{

@@ -42,6 +42,6 @@ class ProtocolLogin : public Protocol
 		virtual void deleteProtocolTask();
 		#endif
 		void disconnectClient(uint8_t error, const char* message);
-		void delegate(const std::string& name, const std::string& password, uint16_t version);
+		void delegate(const std::string& name, const std::string& password, uint32_t clientIp, uint16_t version);
 };
 #endif
