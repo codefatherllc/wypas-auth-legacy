@@ -22,8 +22,8 @@
 #define CLIENT_VERSION_MAX 963
 #define CLIENT_VERSION_STRING "WypasOTS has been updated, please restart the game using launcher!"
 
-#define CLIENT_VERSION_DAT 1451389021
-#define CLIENT_VERSION_SPR 1451389021
+#define CLIENT_VERSION_DAT 1451847756
+#define CLIENT_VERSION_SPR 1451847756
 #define CLIENT_VERSION_PIC 1378392606
 #define CLIENT_VERSION_DATA "WypasOTS has been updated, please restart the game using launcher!"
 
