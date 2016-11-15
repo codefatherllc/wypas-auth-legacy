@@ -125,13 +125,13 @@ void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 #endif
 #endif
 
-	time_t now = time(NULL);
+	/*time_t now = time(NULL);
 	tm* ltm = gmtime(&now);
 	if((ltm->tm_hour == 8 && ltm->tm_min > 54) || (ltm->tm_hour == 9 && ltm->tm_min < 5))
 	{
 		disconnectClient(0x0A, "Server is just going down for a global save, please come back later.");
 		return;
-	}
+	}*/
 
 	uint32_t clientIp = getConnection()->getIP();
 	if(ConnectionManager::getInstance()->isDisabled(clientIp, protocolId))
