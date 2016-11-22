@@ -20,12 +20,13 @@
 
 #define CLIENT_VERSION_MIN 9630
 #define CLIENT_VERSION_MAX 9631
-#define CLIENT_VERSION_STRING "WypasOTS has been updated.\nPlease restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
+#define CLIENT_VERSION_CUSTOM 964
+#define CLIENT_VERSION_STRING "WypasOTS has been updated, please restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
 
 #define CLIENT_VERSION_DAT 1479521064
 #define CLIENT_VERSION_SPR 1479521064
 #define CLIENT_VERSION_PIC 1378392606
-#define CLIENT_VERSION_DATA "WypasOTS has been updated.\nPlease restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
+#define CLIENT_VERSION_DATA "WypasOTS has been updated, please restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
 
 #define SOFTWARE_NAME "Wypas Server"
 #define SOFTWARE_VERSION "1.2"

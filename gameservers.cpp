@@ -63,7 +63,7 @@ bool GameServers::loadFromXml(bool result)
 			continue;
 
 		std::string name, address;
-		uint32_t id, versionMin, versionMax;
+		uint32_t id, versionMin, versionMax, versionCustom;
 
 		IntegerVec ports;
 		if(readXMLInteger(p, "id", intValue))
@@ -104,6 +104,14 @@ bool GameServers::loadFromXml(bool result)
 			std::clog << "[Warning - GameServers::loadFromXml] Missing versionMax for server " << id << ", using default" << std::endl;
 		}
 
+		if(readXMLInteger(p, "versionCustom", intValue))
+			versionCustom = intValue;
+		else
+		{
+			versionCustom = CLIENT_VERSION_CUSTOM;
+			std::clog << "[Warning - GameServers::loadFromXml] Missing versionCustom for server " << id << ", using default" << std::endl;
+		}
+
 		if(readXMLString(p, "address", strValue) || readXMLString(p, "ip", strValue))
 			address = strValue;
 		else
@@ -120,7 +128,7 @@ bool GameServers::loadFromXml(bool result)
 			std::clog << "[Warning - GameServers::loadFromXml] Missing port for server " << id << ", using default" << std::endl;
 		}
 
-		if(GameServer* server = new GameServer(name, versionMin, versionMax, inet_addr(address.c_str()), ports))
+		if(GameServer* server = new GameServer(name, versionMin, versionMax, versionCustom, inet_addr(address.c_str()), ports))
 			serverList[id] = server;
 		else
 			std::clog << "[Error - GameServers::loadFromXml] Couldn't add server " << name << std::endl;

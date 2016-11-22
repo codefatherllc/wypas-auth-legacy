@@ -23,21 +23,22 @@ class GameServer
 {
 	public:
 		GameServer(): name("TheForgottenServer"), address(LOCALHOST),
-			versionMin(CLIENT_VERSION_MIN), versionMax(CLIENT_VERSION_MAX) {}
-		GameServer(std::string _name, uint32_t _versionMin, uint32_t _versionMax, uint32_t _address, std::vector<int32_t> _ports):
-			name(_name), address(_address), versionMin(_versionMin), versionMax(_versionMax), ports(_ports) {}
+			versionMin(CLIENT_VERSION_MIN), versionMax(CLIENT_VERSION_MAX), versionCustom(CLIENT_VERSION_CUSTOM) {}
+		GameServer(std::string _name, uint32_t _versionMin, uint32_t _versionMax, uint32_t _versionCustom, uint32_t _address, std::vector<int32_t> _ports):
+			name(_name), address(_address), versionMin(_versionMin), versionMax(_versionMax), versionCustom(_versionCustom), ports(_ports) {}
 		virtual ~GameServer() {}
 
 		std::string getName() const {return name;}
 		uint32_t getVersionMin() const {return versionMin;}
 		uint32_t getVersionMax() const {return versionMax;}
+		uint32_t getVersionCustom() const {return versionCustom;}
 
 		uint32_t getAddress() const {return address;}
 		std::vector<int32_t> getPorts() const {return ports;}
 
 	protected:
 		std::string name;
-		uint32_t address, versionMin, versionMax;
+		uint32_t address, versionMin, versionMax, versionCustom;
 		std::vector<int32_t> ports;
 };
 

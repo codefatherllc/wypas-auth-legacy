@@ -93,7 +93,7 @@ void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 	if(name.empty())
 		name = "10";
 
-	if(version < CLIENT_VERSION_MIN || version > CLIENT_VERSION_MAX)
+	if((version < CLIENT_VERSION_MIN || version > CLIENT_VERSION_MAX) && version != CLIENT_VERSION_CUSTOM)
 	{
 		disconnectClient(0x0A, CLIENT_VERSION_STRING);
 		return;
@@ -186,7 +186,8 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 	Characters charList;
 	for(Characters::iterator it = account.charList.begin(); it != account.charList.end(); ++it)
 	{
-		if(version >= it->second.server->getVersionMin() && version <= it->second.server->getVersionMax())
+		if((version >= it->second.server->getVersionMin() && version <= it->second.server->getVersionMax())
+			|| version == it->second.server->getVersionCustom())
 			charList[it->first] = it->second;
 	}
 
@@ -226,7 +227,7 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 					if((t & 1) == 1)
 					{
 						GameServer* srv = GameServers::getInstance()->getServerById(result->getDataInt("world_id"));
-						if(version >= srv->getVersionMin() && version <= srv->getVersionMax())
+						if((version >= srv->getVersionMin() && version <= srv->getVersionMax()) || version == srv->getVersionCustom())
 							tmp[result->getDataString("name")] = std::make_pair(((t & 2) == 2), std::make_pair(srv, result->getDataInt("level")));
 					}
 				}
