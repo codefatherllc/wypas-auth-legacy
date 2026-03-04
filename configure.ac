@@ -132,6 +132,14 @@ AC_CHECK_LIB(boost_filesystem-gcc-mt, main, , [
 	])
 ])
 
+AC_CHECK_LIB(boost_regex-gcc-mt, main, , [
+	AC_CHECK_LIB(boost_regex-mt, main, , [
+		AC_CHECK_LIB(boost_regex, main, , [
+			AC_MSG_ERROR("Linking against boost::regex library failed.")
+		])
+	])
+])
+
 # check for boost::unordered_set (should only check if gnu compiler version is below 4)
 # AC_CHECK_HEADERS([boost/tr1/unordered_set.hpp], , [AC_MSG_ERROR("boost::unordered_set header not found. Please update your boost to at least 1.40.")])
 
