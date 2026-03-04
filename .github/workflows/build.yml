@@ -18,7 +18,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             autoconf automake libtool pkg-config \
-            libboost-all-dev \
             libmysqlclient-dev \
             liblua5.1-dev \
             libgmp-dev \
@@ -26,6 +25,15 @@ jobs:
             libssl-dev \
             zlib1g-dev \
             libsqlite3-dev
+
+      - name: Install Boost 1.90
+        run: |
+          wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
+          tar xf boost_1_90_0.tar.gz
+          cd boost_1_90_0
+          ./bootstrap.sh --with-libraries=system,thread,regex,filesystem,date_time,chrono
+          sudo ./b2 install -j$(nproc) --prefix=/usr/local
+          sudo ldconfig
 
       - name: autogen
         run: bash autogen.sh
