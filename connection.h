@@ -90,8 +90,8 @@ class ConnectionManager
 class Connection : public boost::enable_shared_from_this<Connection>, boost::noncopyable
 {
 	public:
-		enum {writeTimeout = 30};
-		enum {readTimeout = 30};
+		static const int writeTimeout = 30;
+		static const int readTimeout = 30;
 
 		enum ConnectionState_t
 		{

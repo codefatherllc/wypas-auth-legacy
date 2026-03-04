@@ -74,7 +74,7 @@
 		#define OTSYS_SLEEP(n) Sleep(n)
 	#endif
 #else
-	#include <sys/timeb.h>
+	#include <sys/time.h>
 	#include <sys/types.h>
 	#include <sys/socket.h>
 
@@ -96,9 +96,15 @@
 
 inline int64_t OTSYS_TIME()
 {
+#ifdef WINDOWS
 	timeb t;
 	ftime(&t);
 	return ((int64_t)t.millitm) + ((int64_t)t.time) * 1000;
+#else
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return ((int64_t)tv.tv_usec / 1000) + ((int64_t)tv.tv_sec) * 1000;
+#endif
 }
 
 inline uint32_t swap_uint32(uint32_t val)
