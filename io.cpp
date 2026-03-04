@@ -25,6 +25,7 @@
 
 #include "configmanager.h"
 #include "tools.h"
+#include <cstdio>
 
 extern ConfigManager g_config;
 
@@ -265,4 +266,61 @@ bool IO::getBanishment(Ban& ban) const
 
 	result->free();
 	return true;
+}
+
+bool IO::createIpAccessTable()
+{
+	Database* db = Database::getInstance();
+	std::string query = "CREATE TABLE IF NOT EXISTS `ip_access` ("
+		"`ip` VARCHAR(45) NOT NULL,"
+		"`session_token` VARCHAR(64) NOT NULL,"
+		"`granted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+		"`expires_at` TIMESTAMP NOT NULL,"
+		"PRIMARY KEY (`ip`, `session_token`)"
+		")";
+	return db->query(query);
+}
+
+bool IO::grantIpAccess(const std::string& ip, const std::string& sessionToken, int32_t expireSeconds)
+{
+	Database* db = Database::getInstance();
+	std::ostringstream query;
+	query << "INSERT INTO `ip_access` (`ip`, `session_token`, `expires_at`) VALUES ("
+		<< db->escapeString(ip) << ", "
+		<< db->escapeString(sessionToken) << ", "
+		<< "datetime('now', '+" << expireSeconds << " seconds'))";
+
+	if(!db->query(query.str()))
+	{
+		// Try MySQL syntax
+		std::ostringstream query2;
+		query2 << "INSERT INTO `ip_access` (`ip`, `session_token`, `expires_at`) VALUES ("
+			<< db->escapeString(ip) << ", "
+			<< db->escapeString(sessionToken) << ", "
+			<< "DATE_ADD(NOW(), INTERVAL " << expireSeconds << " SECOND))";
+		return db->query(query2.str());
+	}
+	return true;
+}
+
+bool IO::cleanupExpiredIpAccess()
+{
+	Database* db = Database::getInstance();
+	// Try SQLite syntax first
+	if(!db->query("DELETE FROM `ip_access` WHERE `expires_at` < datetime('now')"))
+	{
+		// MySQL syntax
+		return db->query("DELETE FROM `ip_access` WHERE `expires_at` < NOW()");
+	}
+	return true;
+}
+
+std::string IO::generateSessionToken()
+{
+	static const char hex[] = "0123456789abcdef";
+	std::string token;
+	token.reserve(64);
+	for(int i = 0; i < 64; ++i)
+		token += hex[rand() % 16];
+	return token;
 }

@@ -201,6 +201,15 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 	}
 
 	ConnectionManager::getInstance()->addAttempt(clientIp, protocolId, true);
+
+	// Grant IP access for firewall
+	{
+		std::string sessionToken = IO::generateSessionToken();
+		int32_t expireSeconds = (int32_t)g_config.getNumber(ConfigManager::IP_ACCESS_EXPIRE_SECONDS);
+		std::string ipStr = convertIPAddress(clientIp);
+		IO::getInstance()->grantIpAccess(ipStr, sessionToken, expireSeconds);
+	}
+
 	if(OutputMessage_ptr output = OutputMessagePool::getInstance()->getOutputMessage(this, false))
 	{
 		TRACK_MESSAGE(output);

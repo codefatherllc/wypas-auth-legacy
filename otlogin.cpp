@@ -44,6 +44,7 @@
 #include "protocollogin.h"
 #include "protocolold.h"
 #include "status.h"
+#include "httplogin.h"
 
 #include "database.h"
 #include "tools.h"
@@ -409,6 +410,10 @@ void otlogin(StringVec, ServiceManager* services)
 	if(!db || !db->connect())
 		startupErrorMessage("Couldn't estabilish connection to SQL database!");
 
+	std::clog << ">> Creating ip_access table" << std::endl;
+	if(!IO::getInstance()->createIpAccessTable())
+		std::clog << "> WARNING: Could not create ip_access table." << std::endl;
+
 	std::clog << ">> Loading game servers" << std::endl;
 	if(!GameServers::getInstance()->loadFromXml(true))
 		startupErrorMessage("Unable to load game servers!");
@@ -485,6 +490,21 @@ void otlogin(StringVec, ServiceManager* services)
 	services->add<ProtocolStatus>(g_config.getNumber(ConfigManager::STATUS_PORT), ipList);
 	services->add<ProtocolLogin>(g_config.getNumber(ConfigManager::LOGIN_PORT), ipList);
 	services->add<ProtocolOldLogin>(g_config.getNumber(ConfigManager::LOGIN_PORT), ipList);
+
+	// Start HTTP login listener
+	if(g_config.getBool(ConfigManager::HTTP_ENABLED))
+	{
+		uint16_t httpPort = (uint16_t)g_config.getNumber(ConfigManager::HTTP_PORT);
+		std::clog << "> Starting HTTP login service on port " << httpPort << std::endl;
+		boost::shared_ptr<HttpListener> httpListener(new HttpListener(
+			services->getIoService(),
+			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), httpPort)));
+		httpListener->run();
+	}
+
+	// Schedule periodic ip_access cleanup (every 60 seconds)
+	Scheduler::getInstance().addEvent(createSchedulerTask(60000,
+		boost::bind(&IO::cleanupExpiredIpAccess, IO::getInstance())));
 
 	std::clog << "> Bound ports: ";
 	std::list<uint16_t> ports = services->getPorts();

@@ -108,6 +108,7 @@ class ServiceManager : boost::noncopyable
 
 		bool isRunning() const {return !m_acceptors.empty();}
 		std::list<uint16_t> getPorts() const;
+		boost::asio::io_service& getIoService() {return m_io_service;}
 
 	protected:
 		void die() {m_io_service.stop();}

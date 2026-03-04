@@ -16,7 +16,8 @@ endif
 
 theforgottenloginserver_SOURCES = config.h configmanager.cpp configmanager.h connection.cpp \
 	connection.h const.h database.cpp database.h $(MAYBE_MYSQL) $(MAYBE_SQLITE) \
-	gameservers.cpp gameservers.h io.cpp io.h networkmessage.cpp networkmessage.h \
+	gameservers.cpp gameservers.h httplogin.cpp httplogin.h io.cpp io.h \
+	networkmessage.cpp networkmessage.h \
 	otpch.h otlogin.cpp otsystem.h outputmessage.cpp outputmessage.h protocol.cpp \
 	protocol.h protocollogin.cpp protocollogin.h protocolold.cpp protocolold.h \
 	scheduler.cpp scheduler.h server.cpp server.h status.cpp status.h tasks.cpp \
