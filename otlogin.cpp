@@ -32,6 +32,7 @@
 
 #include <boost/config.hpp>
 
+#define OPENSSL_SUPPRESS_DEPRECATED
 #include <openssl/rsa.h>
 #include <openssl/bn.h>
 #include <openssl/err.h>
@@ -372,31 +373,45 @@ void otlogin(StringVec, ServiceManager* services)
 	std::clog << ">> Loading RSA key";
 	g_RSA = RSA_new();
 
-	BN_dec2bn(&g_RSA->p, g_config.getString(ConfigManager::RSA_PRIME1).c_str());
-	BN_dec2bn(&g_RSA->q, g_config.getString(ConfigManager::RSA_PRIME2).c_str());
-	BN_dec2bn(&g_RSA->d, g_config.getString(ConfigManager::RSA_PRIVATE).c_str());
-	BN_dec2bn(&g_RSA->n, g_config.getString(ConfigManager::RSA_MODULUS).c_str());
-	BN_dec2bn(&g_RSA->e, g_config.getString(ConfigManager::RSA_PUBLIC).c_str());
+	BIGNUM *p = NULL, *q = NULL, *d = NULL, *n = NULL, *e = NULL;
+	BN_dec2bn(&p, g_config.getString(ConfigManager::RSA_PRIME1).c_str());
+	BN_dec2bn(&q, g_config.getString(ConfigManager::RSA_PRIME2).c_str());
+	BN_dec2bn(&d, g_config.getString(ConfigManager::RSA_PRIVATE).c_str());
+	BN_dec2bn(&n, g_config.getString(ConfigManager::RSA_MODULUS).c_str());
+	BN_dec2bn(&e, g_config.getString(ConfigManager::RSA_PUBLIC).c_str());
+
+	RSA_set0_key(g_RSA, n, e, d);
+	RSA_set0_factors(g_RSA, p, q);
 
 	// This check will verify keys set in config.lua
 	if(RSA_check_key(g_RSA))
 	{
 		std::clog << std::endl << "> Calculating dmp1, dmq1 and iqmp for RSA...";
 
-		// Ok, now we calculate a few things, dmp1, dmq1 and iqmp
 		BN_CTX* ctx = BN_CTX_new();
 		BN_CTX_start(ctx);
 
-		BIGNUM *r1 = BN_CTX_get(ctx), *r2 = BN_CTX_get(ctx);
-		BN_mod(g_RSA->dmp1, g_RSA->d, r1, ctx);
-		BN_mod(g_RSA->dmq1, g_RSA->d, r2, ctx);
+		const BIGNUM *d_read = NULL, *p_read = NULL, *q_read = NULL;
+		RSA_get0_key(g_RSA, NULL, NULL, &d_read);
+		RSA_get0_factors(g_RSA, &p_read, &q_read);
 
-		BN_mod_inverse(g_RSA->iqmp, g_RSA->q, g_RSA->p, ctx);
+		BIGNUM *r1 = BN_CTX_get(ctx), *r2 = BN_CTX_get(ctx);
+		BIGNUM *dmp1 = BN_new(), *dmq1 = BN_new(), *iqmp = BN_new();
+
+		BN_sub(r1, p_read, BN_value_one());
+		BN_sub(r2, q_read, BN_value_one());
+		BN_mod(dmp1, d_read, r1, ctx);
+		BN_mod(dmq1, d_read, r2, ctx);
+		BN_mod_inverse(iqmp, q_read, p_read, ctx);
+
+		RSA_set0_crt_params(g_RSA, dmp1, dmq1, iqmp);
+
+		BN_CTX_end(ctx);
+		BN_CTX_free(ctx);
 		std::clog << " done" << std::endl;
 	}
 	else
 	{
-		ERR_load_crypto_strings();
 		std::ostringstream s;
 
 		s << std::endl << "> OpenSSL failed - " << ERR_error_string(ERR_get_error(), NULL);

@@ -21,6 +21,7 @@
 #include <iomanip>
 
 #include <boost/filesystem.hpp>
+#define OPENSSL_SUPPRESS_DEPRECATED
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 

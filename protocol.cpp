@@ -26,6 +26,7 @@
 #include "connection.h"
 #include "outputmessage.h"
 
+#define OPENSSL_SUPPRESS_DEPRECATED
 #include <openssl/rsa.h>
 extern RSA* g_RSA;
 
