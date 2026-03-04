@@ -1,0 +1,37 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake libtool pkg-config \
+            libboost-all-dev \
+            libmysqlclient-dev \
+            liblua5.1-dev \
+            libgmp-dev \
+            libxml2-dev \
+            libssl-dev \
+            zlib1g-dev \
+            libsqlite3-dev
+
+      - name: autogen
+        run: bash autogen.sh
+
+      - name: configure
+        run: ./configure --enable-sqlite
+
+      - name: Build
+        run: make -j$(nproc)
