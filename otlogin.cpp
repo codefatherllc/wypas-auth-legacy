@@ -173,7 +173,6 @@ void startupErrorMessage(std::string error = "")
 void otlogin(StringVec args, ServiceManager* services);
 int main(int argc, char* argv[])
 {
-	std::srand((uint32_t)OTSYS_TIME());
 	StringVec args = StringVec(argv, argv + argc);
 	if(argc > 1 && !argumentsHandler(args))
 		return 0;
@@ -213,7 +212,6 @@ int main(int argc, char* argv[])
 
 void otlogin(StringVec, ServiceManager* services)
 {
-	std::srand((uint32_t)OTSYS_TIME());
 #if defined(WINDOWS)
 	SetConsoleTitle(SOFTWARE_NAME);
 
@@ -502,9 +500,9 @@ void otlogin(StringVec, ServiceManager* services)
 		httpListener->run();
 	}
 
-	// Schedule periodic ip_access cleanup (every 60 seconds)
+	// Schedule recurring ip_access cleanup (every 60 seconds)
 	Scheduler::getInstance().addEvent(createSchedulerTask(60000,
-		boost::bind(&IO::cleanupExpiredIpAccess, IO::getInstance())));
+		boost::bind(&IO::cleanupExpiredIpAccessRecurring, IO::getInstance())));
 
 	std::clog << "> Bound ports: ";
 	std::list<uint16_t> ports = services->getPorts();

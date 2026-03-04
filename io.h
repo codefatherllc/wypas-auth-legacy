@@ -91,6 +91,7 @@ class IO
 		bool createIpAccessTable();
 		bool grantIpAccess(const std::string& ip, const std::string& sessionToken, int32_t expireSeconds);
 		bool cleanupExpiredIpAccess();
+		void cleanupExpiredIpAccessRecurring();
 		static std::string generateSessionToken();
 
 	protected:

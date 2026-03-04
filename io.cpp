@@ -18,12 +18,15 @@
 #include <iostream>
 #include <iomanip>
 
+#include <openssl/rand.h>
+
 #include "io.h"
 #include "database.h"
 
 #include "gameservers.h"
 
 #include "configmanager.h"
+#include "scheduler.h"
 #include "tools.h"
 #include <cstdio>
 
@@ -315,12 +318,19 @@ bool IO::cleanupExpiredIpAccess()
 	return true;
 }
 
+void IO::cleanupExpiredIpAccessRecurring()
+{
+	cleanupExpiredIpAccess();
+	Scheduler::getInstance().addEvent(createSchedulerTask(60000,
+		boost::bind(&IO::cleanupExpiredIpAccessRecurring, this)));
+}
+
 std::string IO::generateSessionToken()
 {
-	static const char hex[] = "0123456789abcdef";
-	std::string token;
-	token.reserve(64);
-	for(int i = 0; i < 64; ++i)
-		token += hex[rand() % 16];
-	return token;
+	unsigned char buf[32];
+	RAND_bytes(buf, sizeof(buf));
+	std::ostringstream token;
+	for(int i = 0; i < 32; ++i)
+		token << std::hex << std::setfill('0') << std::setw(2) << (int)buf[i];
+	return token.str();
 }
