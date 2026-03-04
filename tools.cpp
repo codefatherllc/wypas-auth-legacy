@@ -686,17 +686,18 @@ std::string formatTime(time_t _time/* = 0*/, bool ms/* = false*/)
 		s << tms->tm_sec;
 		if(ms)
 		{
-			timeb t;
-			ftime(&t);
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			int32_t millitm = tv.tv_usec / 1000;
 
 			s << "."; // make it format zzz
-			if(t.millitm < 10)
+			if(millitm < 10)
 				s << "0";
 
-			if(t.millitm < 100)
+			if(millitm < 100)
 				s << "0";
 
-			s << t.millitm;
+			s << millitm;
 		}
 	}
 	else
