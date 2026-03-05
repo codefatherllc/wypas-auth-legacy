@@ -71,11 +71,6 @@
 	updatePremiumStateAtStartup = false
 	displayOnOrOffAtCharlist = true
 
-	-- HTTP Login
-	httpEnabled = true
-	httpPort = 7173
-	ipAccessExpireSeconds = 300
-
 	-- Logs
 	runFile = "tfls.pid"
 	outputLog = ""

@@ -118,10 +118,6 @@ bool ConfigManager::load()
 	m_confNumber[GAMEMASTER_GROUP]		= getGlobalNumber("gamemasterGroup", 4);
 	m_confNumber[MAX_PACKETS_PER_SECOND]		= getGlobalNumber("maxPacketsPerSecond", 25);
 	m_confBool[FORCE_CLOSE_SLOW_CONNECTION]		= getGlobalNumber("forceSlowConnectionsToDisconnect", false);
-	m_confNumber[HTTP_PORT]				= getGlobalNumber("httpPort", 7173);
-	m_confBool[HTTP_ENABLED]			= getGlobalBool("httpEnabled", true);
-	m_confNumber[IP_ACCESS_EXPIRE_SECONDS]		= getGlobalNumber("ipAccessExpireSeconds", 300);
-
 	m_loaded = true;
 	return true;
 }

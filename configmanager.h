@@ -98,8 +98,6 @@ class ConfigManager
 			SERVICE_THREADS,
 			GAMEMASTER_GROUP,
 			MAX_PACKETS_PER_SECOND,
-			HTTP_PORT,
-			IP_ACCESS_EXPIRE_SECONDS,
 			LAST_NUMBER_CONFIG /* this must be the last one */
 		};
 
@@ -112,7 +110,6 @@ class ConfigManager
 			DAEMONIZE,
 			TRUNCATE_LOG,
 			FORCE_CLOSE_SLOW_CONNECTION,
-			HTTP_ENABLED,
 			LAST_BOOL_CONFIG /* this must be the last one */
 		};
 

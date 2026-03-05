@@ -88,12 +88,6 @@ class IO
 		bool checkBanishments() const;
 		bool getBanishment(Ban& ban) const;
 
-		bool createIpAccessTable();
-		bool grantIpAccess(const std::string& ip, const std::string& sessionToken, int32_t expireSeconds);
-		bool cleanupExpiredIpAccess();
-		void cleanupExpiredIpAccessRecurring();
-		static std::string generateSessionToken();
-
 	protected:
 		IO() {}
 
