@@ -7,39 +7,183 @@ on:
     branches: [master]
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            autoconf automake libtool pkg-config \
-            libmysqlclient-dev \
-            liblua5.1-dev \
-            libgmp-dev \
-            libxml2-dev \
-            libssl-dev \
-            zlib1g-dev \
-            libsqlite3-dev
+          sudo apt-get update && sudo apt-get install -y ninja-build
+          curl -L https://github.com/mozilla/sccache/releases/download/v0.9.1/sccache-v0.9.1-$(uname -m)-unknown-linux-musl.tar.gz | tar xz
+          sudo mv sccache-v0.9.1-$(uname -m)-unknown-linux-musl/sccache /usr/local/bin/
 
-      - name: Install Boost 1.90
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Cache CMake build + vcpkg_installed
+        id: cmake-cache
+        uses: actions/cache@v4
+        with:
+          path: build/linux-release/
+          key: linux-${{ matrix.arch }}-cmake-${{ hashFiles('CMakeLists.txt', 'vcpkg.json', 'CMakePresets.json') }}
+
+      - name: Cache sccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sccache
+          key: sccache-linux-${{ matrix.arch }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            sccache-linux-${{ matrix.arch }}-${{ github.ref_name }}-
+            sccache-linux-${{ matrix.arch }}-
+
+      - name: Configure
+        if: steps.cmake-cache.outputs.cache-hit != 'true'
+        env:
+          SCCACHE_DIR: ${{ github.workspace }}/.sccache
         run: |
-          wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
-          tar xf boost_1_90_0.tar.gz
-          cd boost_1_90_0
-          ./bootstrap.sh --with-libraries=system,thread,regex,filesystem,date_time,chrono
-          sudo ./b2 install -j$(nproc) --prefix=/usr/local
-          sudo ldconfig
-
-      - name: autogen
-        run: bash autogen.sh
-
-      - name: configure
-        run: ./configure --enable-sqlite
+          cmake --preset linux-release \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
-        run: make -j$(nproc)
+        env:
+          SCCACHE_DIR: ${{ github.workspace }}/.sccache
+        run: cmake --build --preset linux-release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: theforgottenloginserver-linux-${{ matrix.arch }}
+          path: build/linux-release/theforgottenloginserver
+
+  macos-arm64:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: brew install ninja sccache boost zlib openssl luajit pkgconf
+
+      - name: Cache sccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sccache
+          key: sccache-macos-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            sccache-macos-${{ github.ref_name }}-
+            sccache-macos-
+
+      - name: Configure
+        env:
+          SCCACHE_DIR: ${{ github.workspace }}/.sccache
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix luajit)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          cmake --preset macos-release \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+      - name: Build
+        env:
+          SCCACHE_DIR: ${{ github.workspace }}/.sccache
+        run: cmake --build --preset macos-release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: theforgottenloginserver-macos-arm64
+          path: build/macos-release/theforgottenloginserver
+
+  docker:
+    needs: linux
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Linux amd64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: theforgottenloginserver-linux-amd64
+          path: artifact-amd64/
+
+      - name: Download Linux arm64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: theforgottenloginserver-linux-arm64
+          path: artifact-arm64/
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.ci
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/codefatherllc/wypas-auth-legacy:latest
+            ghcr.io/codefatherllc/wypas-auth-legacy:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: linux
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: theforgottenloginserver-linux-*
+          path: artifacts/
+
+      - name: Prepare release assets
+        run: |
+          cd artifacts
+          chmod +x theforgottenloginserver-linux-amd64/theforgottenloginserver
+          chmod +x theforgottenloginserver-linux-arm64/theforgottenloginserver
+          tar -czf theforgottenloginserver-linux-amd64.tar.gz -C theforgottenloginserver-linux-amd64 theforgottenloginserver
+          tar -czf theforgottenloginserver-linux-arm64.tar.gz -C theforgottenloginserver-linux-arm64 theforgottenloginserver
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.sha }}
+          name: Build ${{ github.sha }}
+          body: |
+            Automated build from commit ${{ github.sha }}
+          files: |
+            artifacts/theforgottenloginserver-linux-amd64.tar.gz
+            artifacts/theforgottenloginserver-linux-arm64.tar.gz

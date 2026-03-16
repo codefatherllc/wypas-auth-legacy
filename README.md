@@ -16,33 +16,45 @@ Web/WASM clients use the Go-based [wypas-auth](https://github.com/codefatherllc/
 - **RSA handshake** + XTEA encryption
 - **IP and account ban enforcement**
 - **Connection rate limiting** per IP
+- **Boost.MySQL** database driver (MySQL only, no SQLite)
+- **JSON world config** (`worlds.json` replaces `servers.xml`)
 
 ## Prerequisites
 
-Ubuntu 24.04:
+### macOS
 
 ```bash
-sudo apt-get install -y \
-  autoconf automake libtool pkg-config \
-  libmysqlclient-dev liblua5.1-dev libgmp-dev \
-  libxml2-dev libssl-dev zlib1g-dev libsqlite3-dev
+./setup-macos.sh
 ```
 
-Boost 1.90 (build from source):
+### Linux (via vcpkg)
+
+CMake + vcpkg handles dependencies automatically. Only `ninja-build` needed system-wide:
 
 ```bash
-wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
-tar xf boost_1_90_0.tar.gz && cd boost_1_90_0
-./bootstrap.sh --with-libraries=system,thread,regex,filesystem,date_time,chrono
-sudo ./b2 install -j$(nproc) --prefix=/usr/local && sudo ldconfig
+sudo apt-get install -y ninja-build
 ```
 
 ## Build
 
+### macOS
+
 ```bash
-./autogen.sh
-./configure --enable-mysql    # or --enable-sqlite
-make -j$(nproc)
+cmake --preset macos-debug
+cmake --build --preset macos-debug
+```
+
+### Linux
+
+```bash
+cmake --preset linux-release
+cmake --build --preset linux-release
+```
+
+### Docker
+
+```bash
+docker build -t auth-legacy .
 ```
 
 Binary: `theforgottenloginserver`
@@ -58,7 +70,6 @@ loginTimeout = 60 * 1000
 loginTries = 10
 retryTimeout = 5 * 1000
 
-sqlType = "mysql"
 sqlHost = "localhost"
 sqlPort = 3306
 sqlUser = "wypas"
@@ -70,12 +81,14 @@ serverName = "Wypas"
 motdText = "Welcome to Wypas!"
 ```
 
-### servers.xml
+See `config.lua.dist` for all options.
 
-```xml
-<servers>
-  <server id="0" name="Wypas" address="127.0.0.1" port="7172"/>
-</servers>
+### worlds.json
+
+```json
+[
+  { "id": 0, "name": "Wypas", "address": "127.0.0.1", "ports": [7172] }
+]
 ```
 
 ## Login Flow
@@ -89,21 +102,27 @@ motdText = "Welcome to Wypas!"
 
 ## CI
 
-GitHub Actions: `.github/workflows/build.yml` on push to `master`. Builds on Ubuntu 24.04. Status: green.
+GitHub Actions: `.github/workflows/build.yml` on push to `master`.
+
+**Jobs:**
+- `linux` — amd64 + arm64 (CMake + vcpkg + sccache)
+- `macos-arm64` — Homebrew deps + sccache
+- `docker` — Multi-arch GHCR image (push to master only)
+- `release` — GitHub Release with tarballs (push to master only)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `protocollogin.cpp` | Login protocol: version check, RSA, auth, char list |
-| `connection.cpp` | TCP socket, message framing, XTEA |
-| `database.cpp` | Abstract DB interface (MySQL/SQLite) |
-| `gameservers.cpp` | Loads servers.xml |
-| `io.cpp` | Account/ban lookups |
-| `configmanager.cpp` | Loads config.lua |
-| `server.cpp` | Boost.Asio acceptor |
-| `config.lua` | Runtime configuration |
-| `servers.xml` | Game server directory |
+| `src/protocol/protocollogin.cpp` | Login protocol: version check, RSA, auth, char list |
+| `src/net/connection.cpp` | TCP socket, message framing, XTEA |
+| `src/database.cpp` | Boost.MySQL database interface |
+| `src/io/worlds.cpp` | Loads worlds.json (Boost.JSON) |
+| `src/io/io.cpp` | Account/ban lookups |
+| `src/configmanager.cpp` | Loads config.lua |
+| `src/net/server.cpp` | Boost.Asio acceptor |
+| `config.lua.dist` | Reference configuration |
+| `worlds.json` | Game server directory |
 
 ## Related Repos
 

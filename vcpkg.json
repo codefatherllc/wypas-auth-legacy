@@ -1,0 +1,17 @@
+{
+  "name": "wypas-auth-legacy",
+  "version": "2.0.0",
+  "builtin-baseline": "1e199d32ad53aab1defda61ce41c380302e3f95c",
+  "dependencies": [
+    "boost-system",
+    "boost-asio",
+    "boost-charconv",
+    "boost-json",
+    "boost-mysql",
+    "boost-filesystem",
+    "boost-thread",
+    "zlib",
+    "openssl",
+    "luajit"
+  ]
+}

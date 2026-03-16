@@ -1,0 +1,17 @@
+# Lightweight runtime image for CI — binary is pre-built and copied from artifact.
+FROM ubuntu:24.04
+
+ARG TARGETARCH
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libstdc++6 zlib1g libssl3t64 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /server
+
+COPY artifact-${TARGETARCH}/theforgottenloginserver .
+RUN chmod +x theforgottenloginserver
+
+EXPOSE 7171
+
+ENTRYPOINT ["./theforgottenloginserver"]
