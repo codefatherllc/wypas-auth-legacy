@@ -73,7 +73,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install deps
-        run: brew install ninja sccache boost zlib openssl luajit pkgconf
+        run: brew install ninja sccache boost zlib openssl
 
       - name: Cache sccache
         uses: actions/cache@v4
@@ -88,7 +88,6 @@ jobs:
         env:
           SCCACHE_DIR: ${{ github.workspace }}/.sccache
         run: |
-          export PKG_CONFIG_PATH="$(brew --prefix luajit)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
           cmake --preset macos-release \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache

@@ -32,15 +32,9 @@ void Worlds::clear()
 	worldList.clear();
 }
 
-bool Worlds::reload()
+bool Worlds::loadFromJson(const std::string& configDir, bool verbose)
 {
-	clear();
-	return loadFromJson(false);
-}
-
-bool Worlds::loadFromJson(bool verbose)
-{
-	std::string path = getFilePath(FILE_TYPE_CONFIG, "worlds.json");
+	std::string path = configDir + "/worlds.json";
 	std::ifstream file(path);
 	if(!file.is_open())
 	{

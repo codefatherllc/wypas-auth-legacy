@@ -64,6 +64,9 @@ boost::mutex g_loaderLock;
 boost::condition_variable g_loaderSignal;
 boost::unique_lock<boost::mutex> g_loaderUniqueLock(g_loaderLock);
 
+// Parsed from --path or defaults to "."
+static std::string g_configDir = ".";
+
 bool argumentsHandler(StringVec args)
 {
 	StringVec tmp;
@@ -73,14 +76,13 @@ bool argumentsHandler(StringVec args)
 		{
 			std::clog << "Usage:\n"
 			"\n"
-			"\t--config=$1\t\tAlternate configuration file path.\n"
-			"\t--ip=$1\t\t\tIP address of the server.\n"
-			"\t\t\t\tShould be equal to the global IP.\n"
-			"\t--login-port=$1\tPort for login server to listen on.\n";
-			std::clog << "\t--runfile=$1\t\tSpecifies run file. Will contain the pid\n"
+			"\t--path=$1\t\tPath to config directory (containing config.json).\n"
+			"\t--runfile=$1\t\tSpecifies run file. Will contain the pid\n"
 			"\t\t\t\tof the server process as long as run status.\n";
 			std::clog << "\t--log=$1\t\tWhole standard output will be logged to\n"
-			"\t\t\t\tthis file.\n";
+			"\t\t\t\tthis file.\n"
+			"\t--daemon, -d\t\tRun as daemon.\n"
+			"\t--version, -v\t\tShow version.\n";
 			return false;
 		}
 
@@ -94,12 +96,8 @@ bool argumentsHandler(StringVec args)
 		}
 
 		tmp = explodeString((*it), "=");
-		if(tmp[0] == "--config")
-			g_config.setString(ConfigManager::CONFIG_FILE, tmp[1]);
-		else if(tmp[0] == "--ip")
-			g_config.setString(ConfigManager::IP, tmp[1]);
-		else if(tmp[0] == "--login-port")
-			g_config.setNumber(ConfigManager::LOGIN_PORT, atoi(tmp[1].c_str()));
+		if(tmp[0] == "--path")
+			g_configDir = tmp[1];
 		else if(tmp[0] == "--runfile" || tmp[0] == "--run-file" || tmp[0] == "--pidfile" || tmp[0] == "--pid-file")
 			g_config.setString(ConfigManager::RUNFILE, tmp[1]);
 		else if(tmp[0] == "--log")
@@ -225,9 +223,9 @@ void otlogin(StringVec, ServiceManager* services)
 	if(!debug.empty())
 		std::clog << ">> Debugging:" << debug << "." << std::endl;
 
-	std::clog << ">> Loading config (" << g_config.getString(ConfigManager::CONFIG_FILE) << ")" << std::endl;
-	if(!g_config.load())
-		startupErrorMessage("Unable to load " + g_config.getString(ConfigManager::CONFIG_FILE) + "!");
+	std::clog << ">> Loading config (" << g_configDir << "/config.json)" << std::endl;
+	if(!g_config.load(g_configDir))
+		startupErrorMessage("Unable to load " + g_configDir + "/config.json!");
 
 	if(g_config.getBool(ConfigManager::DAEMONIZE))
 	{
@@ -244,7 +242,7 @@ void otlogin(StringVec, ServiceManager* services)
 	std::clog << "> Opening logs" << std::endl;
 	Logger::getInstance()->open();
 
-	IntegerVec cores = vectorAtoi(explodeString(g_config.getString(ConfigManager::CORES_USED), ","));
+	IntegerVec cores = g_config.getCoresUsed();
 	if(cores[0] != -1)
 	{
 #ifndef __APPLE__
@@ -294,7 +292,7 @@ void otlogin(StringVec, ServiceManager* services)
 		g_config.setNumber(ConfigManager::ENCRYPTION, ENCRYPTION_PLAIN);
 		std::clog << "> Using plaintext encryption" << std::endl << std::endl
 			<< "> WARNING: This method is completely unsafe!" << std::endl
-			<< "> Please set encryptionType = \"sha1\" (or any other available method) in config.lua" << std::endl;
+			<< "> Please set auth.encryptionType = \"sha1\" (or any other available method) in config.json" << std::endl;
 		boost::this_thread::sleep(boost::posix_time::seconds(15));
 	}
 
@@ -345,18 +343,9 @@ void otlogin(StringVec, ServiceManager* services)
 		startupErrorMessage(s.str());
 	}
 
-	// Construct DSN from config values and init Boost.MySQL
+	// Init database from DSN
 	std::clog << ">> Starting SQL connection" << std::endl;
-	{
-		std::ostringstream dsn;
-		dsn << "mysql://"
-			<< g_config.getString(ConfigManager::SQL_USER) << ":"
-			<< g_config.getString(ConfigManager::SQL_PASS) << "@"
-			<< g_config.getString(ConfigManager::SQL_HOST) << ":"
-			<< g_config.getNumber(ConfigManager::SQL_PORT) << "/"
-			<< g_config.getString(ConfigManager::SQL_DB);
-		Database::init(dsn.str());
-	}
+	Database::init(g_config.getString(ConfigManager::DATABASE_DSN));
 
 	Database* db = Database::local();
 	if(!db || !db->isConnected())
@@ -365,7 +354,7 @@ void otlogin(StringVec, ServiceManager* services)
 	Database::startWorkers(2);
 
 	std::clog << ">> Loading worlds" << std::endl;
-	if(!Worlds::getInstance()->loadFromJson(true))
+	if(!Worlds::getInstance()->loadFromJson(g_configDir, true))
 		startupErrorMessage("Unable to load worlds!");
 
 	if(g_config.getBool(ConfigManager::INIT_PREMIUM_UPDATE))
@@ -376,68 +365,33 @@ void otlogin(StringVec, ServiceManager* services)
 
 	std::clog << ">> Starting to dominate the world... done." << std::endl
 		<< ">> Binding services..." << std::endl;
+
+	// Parse legacy.listenAddr as host:port
+	std::string listenAddr = g_config.getString(ConfigManager::LISTEN_ADDR);
+
+	std::string bindHost = "0.0.0.0";
+	uint16_t bindPort = 7171;
+	{
+		// Parse host:port
+		auto colonPos = listenAddr.rfind(':');
+		if(colonPos != std::string::npos)
+		{
+			bindHost = listenAddr.substr(0, colonPos);
+			bindPort = static_cast<uint16_t>(std::atoi(listenAddr.substr(colonPos + 1).c_str()));
+		}
+	}
+
 	IPAddressList ipList;
-
-	std::string ip = g_config.getString(ConfigManager::IP);
-	if(asLowerCaseString(ip) == "auto")
+	boost::system::error_code ec;
+	IPAddress bindAddr = boost::asio::ip::make_address(bindHost, ec);
+	if(ec)
 	{
-		// TODO: automatic detection
+		startupErrorMessage("Cannot parse bind address: " + bindHost + " (" + ec.message() + ")");
 	}
+	ipList.push_back(bindAddr);
 
-	IPAddress m_ip;
-	if(ip.size())
-	{
-		std::clog << "> Global IP address: ";
-		uint32_t resolvedIp = inet_addr(ip.c_str());
-		if(resolvedIp == INADDR_NONE)
-		{
-			struct hostent* host = gethostbyname(ip.c_str());
-			if(!host)
-			{
-				std::clog << "..." << std::endl;
-				startupErrorMessage("Cannot resolve " + ip + "!");
-			}
-
-			resolvedIp = *(uint32_t*)host->h_addr;
-		}
-
-		m_ip = boost::asio::ip::address_v4(swap_uint32(resolvedIp));
-		ipList.push_back(m_ip);
-		std::clog << m_ip.to_string() << std::endl;
-	}
-
-	ipList.push_back(boost::asio::ip::address_v4(INADDR_LOOPBACK));
-	if(!g_config.getBool(ConfigManager::BIND_ONLY_GLOBAL_ADDRESS))
-	{
-		char hostName[128];
-		if(!gethostname(hostName, 128))
-		{
-			if(hostent* host = gethostbyname(hostName))
-			{
-				std::ostringstream s;
-				for(uint8_t** addr = (uint8_t**)host->h_addr_list; addr[0]; addr++)
-				{
-					uint32_t resolved = swap_uint32(*(uint32_t*)(*addr));
-					if(m_ip.to_v4().to_uint() == resolved)
-						continue;
-
-					ipList.push_back(boost::asio::ip::address_v4(resolved));
-					s << (int32_t)(addr[0][0]) << "." << (int32_t)(addr[0][1]) << "."
-						<< (int32_t)(addr[0][2]) << "." << (int32_t)(addr[0][3]) << "\t";
-				}
-
-				if(s.str().size())
-					std::clog << "> Local IP address(es): " << s.str() << std::endl;
-			}
-		}
-
-		if(m_ip.to_v4().to_uint() != LOCALHOST)
-			ipList.push_back(boost::asio::ip::address_v4(LOCALHOST));
-	}
-	else if(ipList.size() < 2)
-		startupErrorMessage("Unable to bind any IP address! You may want to disable \"bindOnlyGlobalAddress\" setting in config.lua");
-
-	services->add<ProtocolLogin>(g_config.getNumber(ConfigManager::LOGIN_PORT), ipList);
+	std::clog << "> Binding to " << bindHost << ":" << bindPort << std::endl;
+	services->add<ProtocolLogin>(bindPort, ipList);
 
 	std::clog << "> Bound ports: ";
 	std::list<uint16_t> ports = services->getPorts();

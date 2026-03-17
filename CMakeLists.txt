@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --- Options ---
-option(USE_LUAJIT "Use LuaJIT instead of Lua 5.1" ON)
 option(ENABLE_DEBUG "Enable debug build" OFF)
 option(ENABLE_ROOT_PERMISSION "Allow running as root" OFF)
 
@@ -49,9 +48,6 @@ target_compile_definitions(theforgottenloginserver PRIVATE
     __USE_MYSQL__
 )
 
-if(USE_LUAJIT)
-    target_compile_definitions(theforgottenloginserver PRIVATE __LUAJIT__)
-endif()
 if(ENABLE_ROOT_PERMISSION)
     target_compile_definitions(theforgottenloginserver PRIVATE __ROOT_PERMISSION__)
 endif()
@@ -93,16 +89,6 @@ target_link_libraries(theforgottenloginserver PRIVATE OpenSSL::Crypto OpenSSL::S
 
 find_package(Threads REQUIRED)
 target_link_libraries(theforgottenloginserver PRIVATE Threads::Threads)
-
-# LuaJIT (vcpkg provides pkg-config metadata, no CMake config)
-find_package(PkgConfig REQUIRED)
-if(USE_LUAJIT)
-    pkg_check_modules(LUAJIT REQUIRED IMPORTED_TARGET luajit)
-    target_link_libraries(theforgottenloginserver PRIVATE PkgConfig::LUAJIT)
-else()
-    pkg_check_modules(LUA REQUIRED IMPORTED_TARGET lua5.1)
-    target_link_libraries(theforgottenloginserver PRIVATE PkgConfig::LUA)
-endif()
 
 # --- Includes ---
 target_include_directories(theforgottenloginserver PRIVATE

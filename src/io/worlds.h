@@ -50,8 +50,7 @@ class Worlds
 			return &instance;
 		}
 
-		bool loadFromJson(bool verbose);
-		bool reload();
+		bool loadFromJson(const std::string& configDir, bool verbose);
 
 		World* getWorldById(uint32_t id) const;
 

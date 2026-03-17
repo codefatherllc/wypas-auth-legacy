@@ -1,0 +1,53 @@
+{
+  "database": {
+    "dsn": "mysql://root:@localhost:3306/theforgottenserver"
+  },
+  "jwt": {
+    "secret": "change-me-to-a-real-secret"
+  },
+  "auth": {
+    "listenAddr": ":8081",
+    "rateLimit": 5,
+    "encryptionType": "sha1",
+    "demo": false
+  },
+  "discord": {
+    "clientId": "",
+    "clientSecret": "",
+    "redirectUri": ""
+  },
+  "legacy": {
+    "listenAddr": "0.0.0.0:7171",
+    "loginTries": 3,
+    "retryTimeout": 30000,
+    "loginTimeout": 5000,
+    "gamemasterGroup": 4,
+    "maxPacketsPerSecond": 25,
+    "forceCloseSlowConnection": false,
+    "serviceThreads": 1,
+    "motdId": 1,
+    "motdText": "Welcome to The Forgotten Login Server!",
+    "serverName": "Forgotten",
+    "ownerName": "",
+    "ownerEmail": "@otland.net",
+    "url": "http://otland.net/",
+    "location": "Europe",
+    "maxPlayers": 1000,
+    "freePremium": false,
+    "updatePremiumStateAtStartup": true,
+    "displayOnOrOffAtCharlist": true,
+    "niceLevel": 5,
+    "daemonize": false,
+    "coresUsed": [-1],
+    "runFile": "tfls.pid",
+    "outputLog": "",
+    "truncateLogsOnStartup": true,
+    "rsa": {
+      "prime1": "14299623962416399520070177382898895550795403345466153217470516082934737582776038882967213386204600674145392845853859217990626450972452084065728686565928113",
+      "prime2": "7630979195970404721891201847792002125535401292779123937207447574596692788513647179235335529307251350570728407373705564708871762033017096809910315212884101",
+      "public": "65537",
+      "modulus": "109120132967399429278860960508995541528237502902798129123468757937266291492576446330739696001110603907230888610072655818825358503429057592827629436413108566029093628212635953836686562675849720620786279431090218017681061521755056710823876476444260558147179707119674283982419152118103759076030616683978566631413",
+      "private": "46730330223584118622160180015036832148732986808519344675210555262940258739805766860224610646919605860206328024326703361630109888417839241959507572247284807035235569619173792292786907845791904955103601652822519121908367187885509270025388641700821735345222087940578381210879116823013776808975766851829020659073"
+    }
+  }
+}

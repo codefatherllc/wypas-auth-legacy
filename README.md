@@ -61,27 +61,24 @@ Binary: `theforgottenloginserver`
 
 ## Configuration
 
-### config.lua
+### config.json
 
-```lua
-ip = "127.0.0.1"
-loginPort = 7171
-loginTimeout = 60 * 1000
-loginTries = 10
-retryTimeout = 5 * 1000
+Shared with wypas-auth. Both services read from the same file.
 
-sqlHost = "localhost"
-sqlPort = 3306
-sqlUser = "wypas"
-sqlPass = ""
-sqlDatabase = "wypas"
-
-encryptionType = "sha1"
-serverName = "Wypas"
-motdText = "Welcome to Wypas!"
+```json
+{
+  "database": { "dsn": "mysql://wypas:pass@localhost:3306/wypas" },
+  "auth": { "encryptionType": "sha1" },
+  "legacy": {
+    "listenAddr": "0.0.0.0:7171",
+    "serverName": "Wypas",
+    "motdText": "Welcome to Wypas!",
+    "rsa": { "prime1": "...", "prime2": "...", "public": "65537", "modulus": "...", "private": "..." }
+  }
+}
 ```
 
-See `config.lua.dist` for all options.
+See `config.json.dist` for all options. Use `--path=<dir>` to specify config directory.
 
 ### worlds.json
 
@@ -119,9 +116,9 @@ GitHub Actions: `.github/workflows/build.yml` on push to `master`.
 | `src/database.cpp` | Boost.MySQL database interface |
 | `src/io/worlds.cpp` | Loads worlds.json (Boost.JSON) |
 | `src/io/io.cpp` | Account/ban lookups |
-| `src/configmanager.cpp` | Loads config.lua |
+| `src/configmanager.cpp` | Loads config.json (Boost.JSON) |
 | `src/net/server.cpp` | Boost.Asio acceptor |
-| `config.lua.dist` | Reference configuration |
+| `config.json.dist` | Reference configuration |
 | `worlds.json` | Game server directory |
 
 ## Related Repos

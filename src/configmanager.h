@@ -18,27 +18,8 @@
 #ifndef __CONFIG_MANAGER__
 #define __CONFIG_MANAGER__
 
-#ifdef __LUAJIT__
-#if __has_include(<luajit-2.1/lua.hpp>)
-#include <luajit-2.1/lua.hpp>
-#else
-#include <luajit-2.0/lua.hpp>
-#endif
-#elif defined(__ALT_LUA_PATH__)
-extern "C"
-{
-	#include <lua5.1/lua.h>
-	#include <lua5.1/lauxlib.h>
-	#include <lua5.1/lualib.h>
-}
-#else
-extern "C"
-{
-	#include <lua.h>
-	#include <lauxlib.h>
-	#include <lualib.h>
-}
-#endif
+#include <boost/json.hpp>
+#include "tools.h"
 
 class ConfigManager
 {
@@ -49,27 +30,23 @@ class ConfigManager
 		enum string_config_t
 		{
 			DUMMY_STR = 0,
-			CONFIG_FILE,
+			CONFIG_DIR,
+			DATABASE_DSN,
 			SERVER_NAME,
 			OWNER_NAME,
 			OWNER_EMAIL,
 			URL,
 			LOCATION,
-			IP,
 			MOTD_TEXT,
-			SQL_HOST,
-			SQL_USER,
-			SQL_PASS,
-			SQL_DB,
 			ENCRYPTION_TYPE,
 			RSA_PRIME1,
 			RSA_PRIME2,
 			RSA_PUBLIC,
 			RSA_MODULUS,
 			RSA_PRIVATE,
+			LISTEN_ADDR,
 			RUNFILE,
 			OUTPUT_LOG,
-			CORES_USED,
 			LAST_STRING_CONFIG /* this must be the last one */
 		};
 
@@ -78,14 +55,8 @@ class ConfigManager
 			LOGIN_TRIES = 0,
 			RETRY_TIMEOUT,
 			LOGIN_TIMEOUT,
-			LOGIN_PORT,
-			SQL_PORT,
-			SQL_KEEPALIVE,
 			MAX_PLAYERS,
 			ENCRYPTION,
-			MYSQL_READ_TIMEOUT,
-			MYSQL_WRITE_TIMEOUT,
-			MYSQL_RECONNECTION_ATTEMPTS,
 			NICE_LEVEL,
 			MOTD_ID,
 			SERVICE_THREADS,
@@ -99,15 +70,13 @@ class ConfigManager
 			ON_OR_OFF_CHARLIST = 0,
 			FREE_PREMIUM,
 			INIT_PREMIUM_UPDATE,
-			BIND_ONLY_GLOBAL_ADDRESS,
 			DAEMONIZE,
 			TRUNCATE_LOG,
 			FORCE_CLOSE_SLOW_CONNECTION,
 			LAST_BOOL_CONFIG /* this must be the last one */
 		};
 
-		bool load();
-		bool reload() {return m_loaded && load();}
+		bool load(const std::string& configDir);
 		void startup() {m_startup = false;}
 
 		bool isRunning() const {return !m_startup;}
@@ -121,18 +90,14 @@ class ConfigManager
 		bool setNumber(uint32_t _what, int64_t _value);
 		bool setBool(uint32_t _what, bool _value);
 
+		IntegerVec getCoresUsed() const { return m_coresUsed; }
+
 	private:
-		static void moveValue(lua_State* fromL, lua_State* toL);
-
-		std::string getGlobalString(const std::string& _identifier, const std::string& _default = "");
-		bool getGlobalBool(const std::string& _identifier, bool _default = false);
-		int64_t getGlobalNumber(const std::string& _identifier, const int64_t _default = 0);
-
 		bool m_loaded, m_startup;
-		lua_State* L;
 
 		std::string m_confString[LAST_STRING_CONFIG];
 		bool m_confBool[LAST_BOOL_CONFIG];
 		int64_t m_confNumber[LAST_NUMBER_CONFIG];
+		IntegerVec m_coresUsed;
 };
 #endif

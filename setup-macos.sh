@@ -2,8 +2,8 @@
 set -e
 
 # Build tools + library deps via Homebrew
-brew install cmake ninja pkg-config ccache \
-    boost zlib openssl luajit
+brew install cmake ninja ccache \
+    boost zlib openssl
 
 echo "Ready. Run:"
 echo "  cmake --preset macos-debug"
