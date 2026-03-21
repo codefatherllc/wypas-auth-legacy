@@ -126,7 +126,7 @@ GitHub Actions: `.github/workflows/build.yml` on push to `master`.
 | Repo | Purpose |
 |------|---------|
 | `wypas-auth` | Go HTTP login (browser/WASM clients) |
-| `wypas-server` | Game server (TCP 7172 + WS 7174) |
+| `wypas-server` | Game server (TCP 7172 + WS 7173) |
 | `wypas-proxy` | Docker Compose deployment |
 
 ## License
