@@ -14,7 +14,7 @@
   "discord": {
     "clientId": "",
     "clientSecret": "",
-    "redirectUri": ""
+    "baseUrl": ""
   },
   "legacy": {
     "listenAddr": "0.0.0.0:7171",
