@@ -30,10 +30,9 @@
 #include <limits>
 #include <iostream>
 
-#include <boost/utility.hpp>
+#include <boost/core/noncopyable.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/foreach.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <cstddef>
@@ -79,6 +78,4 @@ inline uint32_t swap_uint32(uint32_t val)
     return (val << 16) | (val >> 16);
 }
 
-#define foreach BOOST_FOREACH
-#define reverse_foreach BOOST_REVERSE_FOREACH
 #endif
