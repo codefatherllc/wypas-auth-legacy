@@ -19,6 +19,11 @@
 #include <fstream>
 #include <sstream>
 
+#include <boost/beast.hpp>
+#include <boost/beast/ssl.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/json.hpp>
+
 #include "configmanager.h"
 
 ConfigManager::ConfigManager()
@@ -95,6 +100,16 @@ bool ConfigManager::load(const std::string& configDir)
 		m_confString[ENCRYPTION_TYPE] = "sha1";
 	}
 
+	// discord section
+	if(auto it = root.find("discord"); it != root.end() && it->value().is_object())
+	{
+		const auto& disc = it->value().as_object();
+		if(auto v = disc.find("botToken"); v != disc.end() && v->value().is_string())
+			m_confString[DISCORD_BOT_TOKEN] = std::string(v->value().as_string());
+		if(auto v = disc.find("motdChannel"); v != disc.end() && v->value().is_string())
+			m_confString[DISCORD_MOTD_CHANNEL] = std::string(v->value().as_string());
+	}
+
 	// legacy section
 	if(auto it = root.find("legacy"); it != root.end() && it->value().is_object())
 	{
@@ -121,7 +136,7 @@ bool ConfigManager::load(const std::string& configDir)
 		m_confNumber[LOGIN_TIMEOUT]            = getNum("loginTimeout", 5000);
 		m_confNumber[MAX_PLAYERS]              = getNum("maxPlayers", 1000);
 		m_confNumber[NICE_LEVEL]               = getNum("niceLevel", 5);
-		m_confNumber[MOTD_ID]                  = getNum("motdId", 1);
+		m_confNumber[MOTD_ID]                  = 1;
 		m_confNumber[SERVICE_THREADS]          = getNum("serviceThreads", 1);
 		m_confNumber[GAMEMASTER_GROUP]         = getNum("gamemasterGroup", 4);
 		m_confNumber[MAX_PACKETS_PER_SECOND]   = getNum("maxPacketsPerSecond", 25);
@@ -131,7 +146,7 @@ bool ConfigManager::load(const std::string& configDir)
 		m_confString[OWNER_EMAIL]  = getStr("ownerEmail", "@otland.net");
 		m_confString[URL]          = getStr("url", "http://otland.net/");
 		m_confString[LOCATION]     = getStr("location", "Europe");
-		m_confString[MOTD_TEXT]    = getStr("motdText", "Welcome to The Forgotten Login Server!");
+		m_confString[MOTD_TEXT]   = "";
 
 		m_confString[LISTEN_ADDR] = getStr("listenAddr", "0.0.0.0:7171");
 
@@ -197,7 +212,7 @@ bool ConfigManager::load(const std::string& configDir)
 		m_confNumber[GAMEMASTER_GROUP] = 4;
 		m_confNumber[MAX_PACKETS_PER_SECOND] = 25;
 		m_confString[SERVER_NAME] = "Forgotten";
-		m_confString[MOTD_TEXT] = "Welcome to The Forgotten Login Server!";
+		m_confString[MOTD_TEXT] = "";
 		m_confBool[ON_OR_OFF_CHARLIST] = true;
 		m_confBool[TRUNCATE_LOG] = true;
 		m_coresUsed.clear();
@@ -205,6 +220,7 @@ bool ConfigManager::load(const std::string& configDir)
 	}
 
 	m_loaded = true;
+	reloadMotd();
 	return true;
 }
 
@@ -275,4 +291,86 @@ bool ConfigManager::setBool(uint32_t _what, bool _value)
 
 	std::clog << "[Warning - ConfigManager::setBool] " << _what << std::endl;
 	return false;
+}
+
+void ConfigManager::reloadMotd()
+{
+	namespace beast = boost::beast;
+	namespace http = beast::http;
+	namespace net = boost::asio;
+	namespace ssl = net::ssl;
+	using tcp = net::ip::tcp;
+
+	const std::string& botToken = m_confString[DISCORD_BOT_TOKEN];
+	const std::string& channelId = m_confString[DISCORD_MOTD_CHANNEL];
+
+	if(botToken.empty() || channelId.empty())
+	{
+		if(m_confString[MOTD_TEXT].empty())
+			m_confString[MOTD_TEXT] = "Welcome to Wypas!";
+		return;
+	}
+
+	try
+	{
+		net::io_context ioc;
+		ssl::context ctx(ssl::context::tlsv12_client);
+		ctx.set_default_verify_paths();
+
+		tcp::resolver resolver(ioc);
+		beast::ssl_stream<beast::tcp_stream> stream(ioc, ctx);
+
+		SSL_set_tlsext_host_name(stream.native_handle(), "discord.com");
+
+		auto const results = resolver.resolve("discord.com", "443");
+		beast::get_lowest_layer(stream).connect(results);
+		stream.handshake(ssl::stream_base::client);
+
+		std::string target = "/api/v10/channels/" + channelId + "/messages?limit=1";
+		http::request<http::string_body> req{http::verb::get, target, 11};
+		req.set(http::field::host, "discord.com");
+		req.set(http::field::user_agent, "WypasBot/1.0");
+		req.set(http::field::authorization, "Bot " + botToken);
+
+		http::write(stream, req);
+
+		beast::flat_buffer buffer;
+		http::response<http::string_body> res;
+		http::read(stream, buffer, res);
+
+		beast::error_code ec;
+		stream.shutdown(ec);
+
+		if(res.result() != http::status::ok)
+		{
+			std::clog << "[Warning - ConfigManager::reloadMotd] Discord API returned HTTP " << res.result_int() << std::endl;
+			if(m_confString[MOTD_TEXT].empty())
+				m_confString[MOTD_TEXT] = "Welcome to Wypas!";
+			return;
+		}
+
+		auto jv = boost::json::parse(res.body());
+		if(!jv.is_array() || jv.as_array().empty())
+		{
+			std::clog << "[Warning - ConfigManager::reloadMotd] Discord API returned empty or invalid response" << std::endl;
+			if(m_confString[MOTD_TEXT].empty())
+				m_confString[MOTD_TEXT] = "Welcome to Wypas!";
+			return;
+		}
+
+		auto& msg = jv.as_array()[0].as_object();
+		std::string content(msg["content"].as_string());
+
+		if(!content.empty())
+		{
+			m_confString[MOTD_TEXT] = content;
+			m_confNumber[MOTD_ID]++;
+		}
+	}
+	catch(const std::exception& e)
+	{
+		std::clog << "[Warning - ConfigManager::reloadMotd] Discord fetch failed: " << e.what() << std::endl;
+		if(m_confString[MOTD_TEXT].empty())
+			m_confString[MOTD_TEXT] = "Welcome to Wypas!";
+	}
 }

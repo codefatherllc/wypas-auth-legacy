@@ -14,7 +14,9 @@
   "discord": {
     "clientId": "",
     "clientSecret": "",
-    "baseUrl": ""
+    "baseUrl": "",
+    "botToken": "",
+    "motdChannel": ""
   },
   "legacy": {
     "listenAddr": "0.0.0.0:7171",
@@ -25,8 +27,6 @@
     "maxPacketsPerSecond": 25,
     "forceCloseSlowConnection": false,
     "serviceThreads": 1,
-    "motdId": 1,
-    "motdText": "Welcome to The Forgotten Login Server!",
     "serverName": "Forgotten",
     "ownerName": "",
     "ownerEmail": "@otland.net",

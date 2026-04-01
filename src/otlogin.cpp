@@ -145,6 +145,12 @@ void startupErrorMessage(std::string error = "")
 	std::exit(-1);
 }
 
+void motdReloadTask()
+{
+	g_config.reloadMotd();
+	Scheduler::getInstance().addEvent(createSchedulerTask(60000, boost::bind(&motdReloadTask)));
+}
+
 void otlogin(StringVec args, ServiceManager* services);
 int main(int argc, char* argv[])
 {
@@ -362,6 +368,9 @@ void otlogin(StringVec, ServiceManager* services)
 		std::clog << ">> Updating premium status" << std::endl;
 		IO::getInstance()->updatePremium();
 	}
+
+	Scheduler::getInstance().addEvent(createSchedulerTask(60000, boost::bind(&motdReloadTask)));
+	std::clog << ">> MOTD reload scheduled (every 60s from Discord)" << std::endl;
 
 	std::clog << ">> Starting to dominate the world... done." << std::endl
 		<< ">> Binding services..." << std::endl;

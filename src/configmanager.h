@@ -19,6 +19,7 @@
 #define __CONFIG_MANAGER__
 
 #include <boost/json.hpp>
+#include <mutex>
 #include "tools.h"
 
 class ConfigManager
@@ -38,6 +39,9 @@ class ConfigManager
 			URL,
 			LOCATION,
 			MOTD_TEXT,
+			MOTD_FILE_UNUSED, // placeholder — preserves enum ordering
+			DISCORD_BOT_TOKEN,
+			DISCORD_MOTD_CHANNEL,
 			ENCRYPTION_TYPE,
 			RSA_PRIME1,
 			RSA_PRIME2,
@@ -77,6 +81,7 @@ class ConfigManager
 		};
 
 		bool load(const std::string& configDir);
+		void reloadMotd();
 		void startup() {m_startup = false;}
 
 		bool isRunning() const {return !m_startup;}
