@@ -80,7 +80,10 @@ bool Database::connect()
 			delete m_conn;
 		}
 
-		m_conn = new boost::mysql::any_connection(m_ioc.get_executor());
+		boost::mysql::any_connection_params conn_params;
+		conn_params.initial_buffer_size = 4096;
+		m_conn = new boost::mysql::any_connection(m_ioc.get_executor(), conn_params);
+		m_conn->set_meta_mode(boost::mysql::metadata_mode::full);
 
 		boost::mysql::connect_params params;
 		params.ssl = boost::mysql::ssl_mode::disable;
@@ -97,6 +100,10 @@ bool Database::connect()
 		if(slashPos != std::string::npos)
 		{
 			database = remainder.substr(slashPos + 1);
+			// Strip query parameters (e.g. ?parseTime=true)
+			auto qPos = database.find('?');
+			if(qPos != std::string::npos)
+				database = database.substr(0, qPos);
 			remainder = remainder.substr(0, slashPos);
 		}
 
@@ -377,10 +384,14 @@ int32_t DBResult::getDataInt(const std::string& s)
 	if(it != m_listNames.end())
 	{
 		if(m_currentRow == 0 || m_currentRow > m_result.rows().size())
+		{
+			std::clog << "[DEBUG-DB] getDataInt(" << s << "): m_currentRow=" << m_currentRow << " rows=" << m_result.rows().size() << " -> skip" << std::endl;
 			return 0;
+		}
 
 		auto row = m_result.rows().at(m_currentRow - 1);
 		auto field = row.at(it->second);
+		std::clog << "[DEBUG-DB] getDataInt(" << s << "): col=" << it->second << " null=" << field.is_null() << " int64=" << field.is_int64() << " uint64=" << field.is_uint64() << " string=" << field.is_string() << std::endl;
 		if(field.is_null())
 			return 0;
 
@@ -508,8 +519,13 @@ DBResult::DBResult(boost::mysql::results&& result)
 	: m_result(std::move(result)), m_currentRow(0)
 {
 	auto meta = m_result.meta();
+	std::clog << "[DEBUG-DB] DBResult: rows=" << m_result.rows().size() << " cols=" << meta.size() << " names:";
 	for(std::size_t i = 0; i < meta.size(); ++i)
+	{
 		m_listNames[std::string(meta[i].column_name())] = (uint32_t)i;
+		std::clog << " " << meta[i].column_name();
+	}
+	std::clog << std::endl;
 }
 
 // --- Async worker pool ---

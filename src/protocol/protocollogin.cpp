@@ -56,82 +56,100 @@ void ProtocolLogin::disconnectClient(uint8_t error, const char* message)
 
 void ProtocolLogin::onRecvFirstMessage(NetworkMessage& msg)
 {
+	std::clog << "[DEBUG] onRecvFirstMessage: msg size=" << msg.size() << " pos=" << msg.position() << std::endl;
+
 	msg.skip(2); // client platform
 	uint16_t version = msg.get<uint16_t>();
+	std::clog << "[DEBUG] version=" << version << std::endl;
 
 #ifdef CLIENT_VERSION_DATA
 #ifdef CLIENT_VERSION_DAT
 	uint32_t datSignature = msg.get<uint32_t>();
+	std::clog << "[DEBUG] datSignature=" << datSignature << " (expected>=" << CLIENT_VERSION_DAT << ")" << std::endl;
 #else
 	msg.skip(4);
 #endif
 #ifdef CLIENT_VERSION_SPR
 	uint32_t sprSignature = msg.get<uint32_t>();
+	std::clog << "[DEBUG] sprSignature=" << sprSignature << " (expected>=" << CLIENT_VERSION_SPR << ")" << std::endl;
 #else
 	msg.skip(4);
 #endif
 
 #ifdef CLIENT_VERSION_PIC
 	uint32_t picSignature = msg.get<uint32_t>();
+	std::clog << "[DEBUG] picSignature=" << picSignature << " (expected>=" << CLIENT_VERSION_PIC << ")" << std::endl;
 #else
 	msg.skip(4);
 #endif
 #else
 	msg.skip(12);
 #endif
+
+	std::clog << "[DEBUG] pre-RSA: pos=" << msg.position() << " remaining=" << (msg.size() - msg.position()) << std::endl;
 	if(!RSA_decrypt(msg))
 	{
+		std::clog << "[DEBUG] RSA_decrypt FAILED" << std::endl;
 		getConnection()->close();
 		return;
 	}
+	std::clog << "[DEBUG] RSA_decrypt OK" << std::endl;
 
 	uint32_t key[4] = {msg.get<uint32_t>(), msg.get<uint32_t>(), msg.get<uint32_t>(), msg.get<uint32_t>()};
 	enableXTEAEncryption();
 	setXTEAKey(key);
 
 	std::string name = msg.getString(), password = msg.getString();
+	std::clog << "[DEBUG] name='" << name << "' password='" << password << "'" << std::endl;
 	if(name.empty())
 		name = "10";
 
 	if((version < CLIENT_VERSION_MIN || version > CLIENT_VERSION_MAX) && version != CLIENT_VERSION_CUSTOM)
 	{
+		std::clog << "[DEBUG] REJECTED: version " << version << " not in [" << CLIENT_VERSION_MIN << "," << CLIENT_VERSION_MAX << "] and != " << CLIENT_VERSION_CUSTOM << std::endl;
 		disconnectClient(0x0A, CLIENT_VERSION_STRING);
 		return;
 	}
+	std::clog << "[DEBUG] version OK" << std::endl;
+
 #ifdef CLIENT_VERSION_DATA
 #ifdef CLIENT_VERSION_SPR
-
 	if(sprSignature < CLIENT_VERSION_SPR)
 	{
+		std::clog << "[DEBUG] REJECTED: sprSignature " << sprSignature << " < " << CLIENT_VERSION_SPR << std::endl;
 		disconnectClient(0x0A, CLIENT_VERSION_DATA);
 		return;
 	}
 #endif
 #ifdef CLIENT_VERSION_DAT
-
 	if(datSignature < CLIENT_VERSION_DAT)
 	{
+		std::clog << "[DEBUG] REJECTED: datSignature " << datSignature << " < " << CLIENT_VERSION_DAT << std::endl;
 		disconnectClient(0x0A, CLIENT_VERSION_DATA);
 		return;
 	}
 #endif
 #ifdef CLIENT_VERSION_PIC
-
 	if(picSignature < CLIENT_VERSION_PIC)
 	{
+		std::clog << "[DEBUG] REJECTED: picSignature " << picSignature << " < " << CLIENT_VERSION_PIC << std::endl;
 		disconnectClient(0x0A, CLIENT_VERSION_DATA);
 		return;
 	}
 #endif
 #endif
+	std::clog << "[DEBUG] signatures OK" << std::endl;
 
 	uint32_t clientIp = getConnection()->getIP();
+	std::clog << "[DEBUG] clientIp=" << clientIp << " (" << convertIPAddress(clientIp) << ")" << std::endl;
 	if(ConnectionManager::getInstance()->isDisabled(clientIp, protocolId))
 	{
+		std::clog << "[DEBUG] REJECTED: too many attempts" << std::endl;
 		disconnectClient(0x0A, "Too many connections attempts from your IP address, please try again later.");
 		return;
 	}
 
+	std::clog << "[DEBUG] dispatching delegate for name='" << name << "'" << std::endl;
 	Dispatcher::getInstance().addTask(createTask(boost::bind(
 		&ProtocolLogin::delegate, this, name, password, clientIp, version)));
 }
@@ -146,12 +164,22 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 	}
 
 	Account account;
-	if(!IO::getInstance()->loadAccount(account, name) || (account.number != 10 && !encryptTest(account.salt + password, account.password)))
+	bool loaded = IO::getInstance()->loadAccount(account, name);
+	std::clog << "[DEBUG] loadAccount: loaded=" << loaded << " number=" << account.number << " pwd='" << account.password << "' salt='" << account.salt << "' chars=" << account.charList.size() << std::endl;
+	if(loaded && account.number != 10) {
+		std::string plain = account.salt + password;
+		std::clog << "[DEBUG] encryptTest: plain='" << plain << "' stored_hash='" << account.password << "'" << std::endl;
+		bool match = encryptTest(plain, account.password);
+		std::clog << "[DEBUG] encryptTest result: " << match << std::endl;
+	}
+	if(!loaded || (account.number != 10 && !encryptTest(account.salt + password, account.password)))
 	{
+		std::clog << "[DEBUG] REJECTED: invalid account/password (loaded=" << loaded << ")" << std::endl;
 		ConnectionManager::getInstance()->addAttempt(clientIp, protocolId, false);
 		disconnectClient(0x0A, "Invalid account name or password.");
 		return;
 	}
+	std::clog << "[DEBUG] auth OK, charList size=" << account.charList.size() << std::endl;
 
 	Ban ban;
 	ban.value = account.number;

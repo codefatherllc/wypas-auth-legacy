@@ -18,15 +18,15 @@
 #ifndef __DEFINITIONS__
 #define __DEFINITIONS__
 
-#define CLIENT_VERSION_MIN 9630
+#define CLIENT_VERSION_MIN 963
 #define CLIENT_VERSION_MAX 9632
 #define CLIENT_VERSION_CUSTOM 964
 #define CLIENT_VERSION_STRING "WypasOTS has been updated, please restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
 
-#define CLIENT_VERSION_DAT 1479521064
-#define CLIENT_VERSION_SPR 1479521064
-#define CLIENT_VERSION_PIC 1378392606
-//#define CLIENT_VERSION_DATA "WypasOTS has been updated, please restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
+#define CLIENT_VERSION_DAT 0
+#define CLIENT_VERSION_SPR 0
+#define CLIENT_VERSION_PIC 0
+#define CLIENT_VERSION_DATA "WypasOTS has been updated, please restart the game using launcher!\nAlternatively, you can download portable version from http://wots.pl"
 
 #define SOFTWARE_NAME "TheForgottenLoginServer"
 #define SOFTWARE_VERSION "2.0"

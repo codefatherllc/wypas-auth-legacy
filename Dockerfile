@@ -25,12 +25,16 @@ RUN cmake --preset linux-release \
 FROM ubuntu:24.04 AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libstdc++6 zlib1g libssl3t64 \
+    libstdc++6 zlib1g libssl3t64 libquadmath0 \
     && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -r -s /usr/sbin/nologin wypas
 
 WORKDIR /server
 
 COPY --from=build /src/build/linux-release/theforgottenloginserver .
+
+USER wypas
 
 EXPOSE 7171
 
