@@ -182,22 +182,22 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 	std::clog << "[DEBUG] auth OK, charList size=" << account.charList.size() << std::endl;
 
 	Ban ban;
-	ban.value = account.number;
+	ban.target = std::to_string(account.number);
 
 	ban.type = BAN_ACCOUNT;
 	if(IO::getInstance()->getBanishment(ban))
 	{
-		bool deletion = ban.expires < 0;
+		bool deletion = ban.expiresAt.empty();
 		std::string name_ = "Automatic ";
-		if(!ban.adminId)
+		if(!ban.bannedBy)
 			name_ += (deletion ? "deletion" : "banishment");
 		else
-			IO::getInstance()->getNameByGuid(ban.adminId, name_);
+			IO::getInstance()->getNameByGuid(ban.bannedBy, name_);
 
 		std::ostringstream ss;
-		ss << "Your account has been " << (deletion ? "deleted" : "banished") << " at:\n" << formatDateEx(ban.added, "%d %b %Y")
-			<< " by: " << name_ << ".\nThe comment given was:\n" << ban.comment << ".\nYour " << (deletion ?
-			"account won't be undeleted" : "banishment will be lifted at:\n") << (deletion ? "" : formatDateEx(ban.expires)) << ".";
+		ss << "Your account has been " << (deletion ? "deleted" : "banished") << " at:\n" << ban.createdAt
+			<< " by: " << name_ << ".\nThe comment given was:\n" << ban.reason << ".\nYour " << (deletion ?
+			"account won't be undeleted" : "banishment will be lifted at:\n") << (deletion ? "" : ban.expiresAt) << ".";
 
 		disconnectClient(0x0A, ss.str().c_str());
 		return;
@@ -233,18 +233,22 @@ void ProtocolLogin::delegate(const std::string& name, const std::string& passwor
 			Database* db = Database::local();
 			std::ostringstream query;
 
-			query << "SELECT `name`, `world_id`, `level`, `broadcasting` FROM `players` WHERE `broadcasting` > 0";
+			query << "SELECT `name`, `level`, `broadcasting` FROM `players` WHERE `broadcasting` > 0";
 			if(DBResult* result = db->storeQuery(query.str()))
 			{
+				// v2: single world — use the first configured world
+				World* defaultWorld = NULL;
+				WorldsMap::const_iterator wit = Worlds::getInstance()->getFirstWorld();
+				if(wit != Worlds::getInstance()->getLastWorld())
+					defaultWorld = wit->second;
+
 				std::map<std::string, std::pair<bool, std::pair<World*, int32_t> > > tmp;
 				do
 				{
 					uint8_t t = result->getDataInt("broadcasting");
-					if((t & 1) == 1)
+					if((t & 1) == 1 && defaultWorld)
 					{
-						World* srv = Worlds::getInstance()->getWorldById(result->getDataInt("world_id"));
-						if(srv)
-							tmp[result->getDataString("name")] = std::make_pair(((t & 2) == 2), std::make_pair(srv, result->getDataInt("level")));
+						tmp[result->getDataString("name")] = std::make_pair(((t & 2) == 2), std::make_pair(defaultWorld, result->getDataInt("level")));
 					}
 				}
 				while(result->next());

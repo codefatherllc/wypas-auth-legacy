@@ -34,7 +34,7 @@ bool IO::loadAccount(Account& account, const std::string& name)
 	Database* db = Database::local();
 	std::ostringstream query;
 
-	query << "SELECT `id`, `password`, `salt`, `premdays`, `lastday`, `key`, `warnings` FROM `accounts` WHERE `name` " << db->getStringComparer() << db->escapeString(name) << " LIMIT 1";
+	query << "SELECT `id`, `password`, `salt`, `premium_days`, `lastday`, `key`, `warnings` FROM `accounts` WHERE `name` " << db->getStringComparer() << db->escapeString(name) << " LIMIT 1";
 	DBResult* result;
 	if(!(result = db->storeQuery(query.str())))
 		return false;
@@ -43,7 +43,7 @@ bool IO::loadAccount(Account& account, const std::string& name)
 	account.name = name;
 	account.password = result->getDataString("password");
 	account.salt = result->getDataString("salt");
-	account.premiumDays = std::max((int32_t)0, std::min((int32_t)GRATIS_PREMIUM, result->getDataInt("premdays")));
+	account.premiumDays = std::max((int32_t)0, std::min((int32_t)GRATIS_PREMIUM, result->getDataInt("premium_days")));
 	account.lastDay = result->getDataInt("lastday");
 	account.recoveryKey = result->getDataString("key");
 	account.warnings = result->getDataInt("warnings");
@@ -51,9 +51,15 @@ bool IO::loadAccount(Account& account, const std::string& name)
 	result->free();
 	query.str("");
 
-	query << "SELECT `name`, `world_id`, `group_id`, `online` FROM `players` WHERE `account_id` = " << account.number << " AND `deleted` = 0";
+	query << "SELECT `name`, `group_id`, `online` FROM `players` WHERE `account_id` = " << account.number << " AND `deleted` = 0";
 	if(!(result = db->storeQuery(query.str())))
 		return true;
+
+	// v2: single world — use the first configured world
+	World* defaultWorld = NULL;
+	WorldsMap::const_iterator wit = Worlds::getInstance()->getFirstWorld();
+	if(wit != Worlds::getInstance()->getLastWorld())
+		defaultWorld = wit->second;
 
 	do
 	{
@@ -64,10 +70,10 @@ bool IO::loadAccount(Account& account, const std::string& name)
 			for(WorldsMap::const_iterator it = Worlds::getInstance()->getFirstWorld(); it != Worlds::getInstance()->getLastWorld(); ++it, ++hax)
 				account.charList[name + asString(hax)] = Character(name, it->second, -1);
 		}
-		else if(World* srv = Worlds::getInstance()->getWorldById(result->getDataInt("world_id")))
-			account.charList[name] = Character(name, srv, result->getDataInt("online"));
+		else if(defaultWorld)
+			account.charList[name] = Character(name, defaultWorld, result->getDataInt("online"));
 		else
-			std::clog << "[Warning - IO::loadAccount] Invalid server for player '" << name << "'." << std::endl;
+			std::clog << "[Warning - IO::loadAccount] No default world configured for player '" << name << "'." << std::endl;
 	}
 	while(result->next());
 	result->free();
@@ -79,7 +85,7 @@ Account IO::loadAccount(uint32_t accountId)
 	Database* db = Database::local();
 	std::ostringstream query;
 
-	query << "SELECT `name`, `password`, `salt`, `premdays`, `lastday`, `key`, `warnings` FROM `accounts` WHERE `id` = " << accountId << " LIMIT 1";
+	query << "SELECT `name`, `password`, `salt`, `premium_days`, `lastday`, `key`, `warnings` FROM `accounts` WHERE `id` = " << accountId << " LIMIT 1";
 	DBResult* result;
 	if(!(result = db->storeQuery(query.str())))
 		return Account();
@@ -89,7 +95,7 @@ Account IO::loadAccount(uint32_t accountId)
 	account.name = result->getDataString("name");
 	account.password = result->getDataString("password");
 	account.salt = result->getDataString("salt");
-	account.premiumDays = std::max((int32_t)0, std::min((int32_t)GRATIS_PREMIUM, result->getDataInt("premdays")));
+	account.premiumDays = std::max((int32_t)0, std::min((int32_t)GRATIS_PREMIUM, result->getDataInt("premium_days")));
 	account.lastDay = result->getDataInt("lastday");
 	account.recoveryKey = result->getDataString("key");
 	account.warnings = result->getDataInt("warnings");
@@ -102,7 +108,7 @@ bool IO::saveAccount(Account account)
 {
 	Database* db = Database::local();
 	std::ostringstream query;
-	query << "UPDATE `accounts` SET `premdays` = " << account.premiumDays << ", `warnings` = " << account.warnings << ", `lastday` = " << account.lastDay << " WHERE `id` = " << account.number << db->getUpdateLimiter();
+	query << "UPDATE `accounts` SET `premium_days` = " << account.premiumDays << ", `warnings` = " << account.warnings << ", `lastday` = " << account.lastDay << " WHERE `id` = " << account.number << db->getUpdateLimiter();
 	return db->query(query.str());
 }
 
@@ -202,18 +208,20 @@ bool IO::isIpBanished(uint32_t ip, uint32_t mask/* = 0xFFFFFFFF*/) const
 	if(!ip)
 		return false;
 
+	std::string ipStr = convertIPAddress(ip);
+
 	Database* db = Database::local();
 	DBResult* result;
 
 	std::ostringstream query;
-	query << "SELECT `id`, `value`, `param`, `expires` FROM `bans` WHERE `type` = " << BAN_IP << " AND `active` = 1";
+	query << "SELECT `id`, `target`, `expires_at` FROM `bans` WHERE `ban_type` = 'ip' AND `active` = 1"
+		<< " AND (`expires_at` IS NULL OR `expires_at` > NOW())";
 	if(!(result = db->storeQuery(query.str())))
 		return false;
 
 	do
 	{
-		uint32_t value = result->getDataInt("value"), param = result->getDataInt("param");
-		if((ip & mask & param) == (value & param & mask))
+		if(result->getDataString("target") == ipStr)
 		{
 			result->free();
 			return true;
@@ -229,7 +237,7 @@ bool IO::checkBanishments() const
 	Database* db = Database::local();
 	std::ostringstream query;
 
-	query << "UPDATE `bans` SET `active` = 0 WHERE `active` = 1 AND `expires` > 0 AND `expires` <= " << time(NULL);
+	query << "UPDATE `bans` SET `active` = 0 WHERE `active` = 1 AND `expires_at` IS NOT NULL AND `expires_at` <= NOW()";
 	return db->query(query.str());
 }
 
@@ -238,26 +246,37 @@ bool IO::getBanishment(Ban& ban) const
 	Database* db = Database::local();
 	std::ostringstream query;
 
-	query << "SELECT * FROM `bans` WHERE `value` = " << ban.value;
-	if(ban.param)
-		query << " AND `param` = " << ban.param;
+	query << "SELECT * FROM `bans` WHERE `target` = " << db->escapeString(ban.target);
 
 	if(ban.type != BAN_NONE)
-		query << " AND `type` = " << ban.type;
+	{
+		switch(ban.type)
+		{
+			case BAN_IP: query << " AND `ban_type` = 'ip'"; break;
+			case BAN_PLAYER: query << " AND `ban_type` = 'player'"; break;
+			case BAN_ACCOUNT: query << " AND `ban_type` = 'account'"; break;
+			default: break;
+		}
+	}
 
-	query << " AND `active` = 1 LIMIT 1";
+	query << " AND `active` = 1 AND (`expires_at` IS NULL OR `expires_at` > NOW()) LIMIT 1";
 	DBResult* result;
 	if(!(result = db->storeQuery(query.str())))
 		return false;
 
 	ban.id = result->getDataInt("id");
-	ban.type = (Ban_t)result->getDataInt("type");
-	ban.value = result->getDataInt("value");
-	ban.param = result->getDataInt("param");
-	ban.expires = result->getDataLong("expires");
-	ban.added = result->getDataLong("added");
-	ban.adminId = result->getDataInt("admin_id");
-	ban.comment = result->getDataString("comment");
+	ban.banType = result->getDataString("ban_type");
+	ban.target = result->getDataString("target");
+	ban.expiresAt = result->getDataString("expires_at");
+	ban.createdAt = result->getDataString("created_at");
+	ban.bannedBy = result->getDataInt("banned_by");
+	ban.reason = result->getDataString("reason");
+	ban.active = result->getDataInt("active") != 0;
+
+	// Map ban_type string back to Ban_t enum
+	if(ban.banType == BAN_TYPE_IP) ban.type = BAN_IP;
+	else if(ban.banType == BAN_TYPE_PLAYER) ban.type = BAN_PLAYER;
+	else if(ban.banType == BAN_TYPE_ACCOUNT) ban.type = BAN_ACCOUNT;
 
 	result->free();
 	return true;

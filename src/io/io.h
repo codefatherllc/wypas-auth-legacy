@@ -29,6 +29,11 @@ enum Ban_t
 	BAN_NOTATION = 4
 };
 
+// v2 ban_type ENUM string values
+#define BAN_TYPE_ACCOUNT "account"
+#define BAN_TYPE_PLAYER  "player"
+#define BAN_TYPE_IP      "ip"
+
 class World;
 struct Character
 {
@@ -57,14 +62,15 @@ class Account
 struct Ban
 {
 	Ban_t type;
-	uint32_t id, value, param, added, adminId;
-	int32_t expires;
-	std::string comment;
+	uint32_t id, bannedBy;
+	std::string target, reason, banType, createdAt, expiresAt;
+	bool active;
 
 	Ban()
 	{
 		type = BAN_NONE;
-		id = value = param = added = adminId = expires = 0;
+		id = bannedBy = 0;
+		active = false;
 	}
 };
 
